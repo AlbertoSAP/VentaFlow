@@ -1,7 +1,5 @@
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useMemo, useState, type FormEvent } from "react";
 import {
-  subscribeDB,
-  writeDB,
   uid,
   fmtMoney,
   fmtFecha,
@@ -9,30 +7,18 @@ import {
   totalPagos,
   deuda,
   type DB,
-  type Cliente,
+  type Client,
 } from "./storage.ts";
+import { useClient } from "./hooks/useClient.tsx";
 import Dashboard, { metricas } from "./Dashboard.tsx";
 
 type Vista =
   { tipo: "lista" } | { tipo: "detalle"; id: string } | { tipo: "dashboard" };
 
 function App() {
-  const [db, setDb] = useState<DB | null>(null);
+  const { db, upsert, createClient, deleteClient } = useClient();
   const [vista, setVista] = useState<Vista>({ tipo: "dashboard" });
   const [busqueda, setBusqueda] = useState("");
-
-  const upsert = (fn: (d: DB) => DB) => {
-    setDb((prev) => {
-      if (!prev) return prev;
-
-      const next = fn(structuredClone(prev));
-      writeDB(next);
-
-      return next;
-    });
-  };
-
-  useEffect(() => subscribeDB(setDb), []);
 
   // Los Hooks se ejecutan antes de cualquier retorno anticipado.
   const clientesFiltrados = useMemo(() => {
@@ -40,7 +26,7 @@ function App() {
 
     const q = busqueda.trim().toLowerCase();
 
-    return db.clientes.filter((c) => !q || c.nombre.toLowerCase().includes(q));
+    return db.clientes.filter((c) => !q || c.name.toLowerCase().includes(q));
   }, [db, busqueda]);
 
   const totalPorCobrar = db ? db.clientes.reduce((s, c) => s + deuda(c), 0) : 0;
@@ -93,7 +79,8 @@ function App() {
       ) : vista.tipo === "lista" ? (
         <ListaClientes
           db={db}
-          upsert={upsert}
+          createClient={createClient}
+          deleteClient={deleteClient}
           busqueda={busqueda}
           setBusqueda={setBusqueda}
           clientes={clientesFiltrados}
@@ -113,50 +100,33 @@ function App() {
 
 interface ListaProps {
   db: DB;
-  upsert: (fn: (d: DB) => DB) => void;
+  createClient: (input: { name: string; telephone: string }) => boolean;
+  deleteClient: (id: string, name: string) => void;
   busqueda: string;
   setBusqueda: (v: string) => void;
-  clientes: Cliente[];
+  clientes: Client[];
   totalPorCobrar: number;
   onAbrir: (id: string) => void;
 }
 
 function ListaClientes({
   db,
-  upsert,
+  createClient,
+  deleteClient,
   busqueda,
   setBusqueda,
   clientes,
   totalPorCobrar,
   onAbrir,
 }: ListaProps) {
-  const [nombre, setNombre] = useState("");
-  const [telefono, setTelefono] = useState("");
+  const [name, setName] = useState("");
+  const [telephone, setTelephone] = useState("");
 
   const agregar = (e: FormEvent) => {
     e.preventDefault();
-    if (!nombre.trim()) return;
-    upsert((d) => {
-      d.clientes.unshift({
-        id: uid(),
-        nombre: nombre.trim(),
-        telefono: telefono.trim(),
-        creado: Date.now(),
-        items: [],
-        pagos: [],
-      });
-      return d;
-    });
-    setNombre("");
-    setTelefono("");
-  };
-
-  const eliminar = (id: string, nom: string) => {
-    if (!confirm(`¿Eliminar a ${nom} y todo su registro?`)) return;
-    upsert((d) => {
-      d.clientes = d.clientes.filter((c) => c.id !== id);
-      return d;
-    });
+    if (!createClient({ name, telephone })) return;
+    setName("");
+    setTelephone("");
   };
 
   return (
@@ -177,13 +147,13 @@ function ListaClientes({
         <div className="row">
           <input
             placeholder="Nombre del cliente *"
-            value={nombre}
-            onChange={(e) => setNombre(e.target.value)}
+            value={name}
+            onChange={(e) => setName(e.target.value)}
           />
           <input
             placeholder="Teléfono (opcional)"
-            value={telefono}
-            onChange={(e) => setTelefono(e.target.value)}
+            value={telephone}
+            onChange={(e) => setTelephone(e.target.value)}
           />
           <button className="btn btn-primary" type="submit">
             Agregar
@@ -208,8 +178,8 @@ function ListaClientes({
               onClick={() => onAbrir(c.id)}
             >
               <div>
-                <strong>{c.nombre}</strong>
-                {c.telefono && <span className="mut"> · {c.telefono}</span>}
+                <strong>{c.name}</strong>
+                {c.telephone && <span className="mut"> · {c.telephone}</span>}
                 <div className="mut small">
                   {c.items?.length || 0} productos fiados
                 </div>
@@ -222,7 +192,7 @@ function ListaClientes({
                   className="link danger"
                   onClick={(e) => {
                     e.stopPropagation();
-                    eliminar(c.id, c.nombre);
+                    deleteClient(c.id, c.name);
                   }}
                 >
                   eliminar
@@ -243,7 +213,7 @@ function ListaClientes({
 
 interface DetalleProps {
   upsert: (fn: (d: DB) => DB) => void;
-  cliente: Cliente | undefined;
+  cliente: Client | undefined;
   onVolver: () => void;
 }
 
@@ -319,8 +289,8 @@ function DetalleCliente({ upsert, cliente }: DetalleProps) {
     <main className="wrap">
       <div className="cliente-head">
         <div>
-          <h2>{cliente.nombre}</h2>
-          {cliente.telefono && <span className="mut">{cliente.telefono}</span>}
+          <h2>{cliente.name}</h2>
+          {cliente.telephone && <span className="mut">{cliente.telephone}</span>}
         </div>
         <div className="total-box">
           <span>Deuda actual</span>

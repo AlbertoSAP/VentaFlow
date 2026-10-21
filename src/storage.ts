@@ -17,23 +17,53 @@ export interface Pago {
 }
 
 export interface Client {
-  id?: string;
+  id: string;
   name: string;
   telephone: string;
   created: number;
-}
-
-export interface Cliente {
-  id: string;
-  nombre: string;
-  telefono: string;
-  creado: number;
   items: FiadoItem[];
   pagos: Pago[];
 }
 
 export interface DB {
   clientes: Client[];
+}
+
+// ---------- Normalización (datos legacy en español) ----------
+// Antes del refactor los clientes se guardaban como
+// { nombre, telefono, creado }. Al leerlos se convierten al
+// modelo en inglés para no perder ningún dato ya guardado;
+// al escribir, ya quedan persistidos con el esquema nuevo.
+interface LegacyClient {
+  id?: string;
+  name?: string;
+  nombre?: string;
+  telephone?: string;
+  telefono?: string;
+  created?: number;
+  creado?: number;
+  items?: FiadoItem[];
+  pagos?: Pago[];
+}
+
+function normalizeClient(raw: LegacyClient): Client {
+  return {
+    id: raw.id ?? uid(),
+    name: raw.name ?? raw.nombre ?? "",
+    telephone: raw.telephone ?? raw.telefono ?? "",
+    created: raw.created ?? raw.creado ?? Date.now(),
+    items: raw.items ?? [],
+    pagos: raw.pagos ?? [],
+  };
+}
+
+function normalizeDB(raw: { clientes?: LegacyClient[] | Record<string, LegacyClient> } | null): DB {
+  if (!raw?.clientes) return { clientes: [] };
+  // Firebase puede devolver la lista como arreglo o como objeto.
+  const list = Array.isArray(raw.clientes)
+    ? raw.clientes
+    : Object.values(raw.clientes);
+  return { clientes: list.map(normalizeClient) };
 }
 
 // ---------- Firebase Realtime Database ----------
@@ -43,7 +73,7 @@ const PATH = "fiados";
 export function subscribeDB(cb: (db: DB) => void): Unsubscribe {
   const r = ref(database, PATH);
   return onValue(r, (snap) => {
-    cb((snap.val() as DB | null) ?? { clientes: [] });
+    cb(normalizeDB(snap.val() as { clientes?: LegacyClient[] } | null));
   });
 }
 
@@ -69,17 +99,17 @@ export const fmtFecha = (ts: number): string =>
     year: "numeric",
   });
 
-export function totalItems(c: Cliente): number {
+export function totalItems(c: Client): number {
   return (c.items || []).reduce(
     (s, it) => s + it.precio * (it.cantidad || 1),
     0,
   );
 }
 
-export function totalPagos(c: Cliente): number {
+export function totalPagos(c: Client): number {
   return (c.pagos || []).reduce((s, p) => s + p.monto, 0);
 }
 
-export function deuda(c: Cliente): number {
+export function deuda(c: Client): number {
   return Math.max(0, totalItems(c) - totalPagos(c));
 }

@@ -42,7 +42,7 @@ function actividadReciente(db: DB, limite = 8): Actividad[] {
         tipo: "pago",
         monto: p.monto,
         fecha: p.fecha,
-        cliente: c.nombre,
+        cliente: c.name,
       });
     for (const it of c.items || [])
       acts.push({
@@ -50,7 +50,7 @@ function actividadReciente(db: DB, limite = 8): Actividad[] {
         tipo: "fiado",
         monto: it.precio * (it.cantidad || 1),
         fecha: it.fecha,
-        cliente: c.nombre,
+        cliente: c.name,
         desc: it.descripcion,
       });
   }
@@ -115,7 +115,7 @@ export default function Dashboard({ db }: Props) {
               <div className="bar-row" key={c.id}>
                 <div className="bar-meta">
                   <strong>
-                    #{i + 1} {c.nombre}
+                    #{i + 1} {c.name}
                   </strong>
                   <span className="mut small">
                     {(c.items || []).length} productos ·{" "}
