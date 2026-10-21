@@ -127,9 +127,9 @@ export const useClient = (vendorUid: string) => {
     id: string,
     name: string,
   ): Promise<string | null> => {
-    // Antes de la confirmación se verifica si tiene registros:
-    // un cliente con registros NO puede ser eliminado,
-    // un cliente sin registros sí puede ser eliminado.
+    // La confirmación la pide la UI con el modal; aquí se mantiene la
+    // verificación como segunda barrera: un cliente con registros NO
+    // puede ser eliminado, un cliente sin registros sí.
     const client = clients.find((c) => c.id === id);
     if (!client) return "Cliente no encontrado.";
 
@@ -138,8 +138,6 @@ export const useClient = (vendorUid: string) => {
 
     if (hasRecords)
       return `No se puede eliminar a ${name}: tiene productos fiados o abonos registrados.`;
-
-    if (!confirm(`¿Eliminar a ${name}?`)) return null;
 
     try {
       await deleteClientRecord(id);

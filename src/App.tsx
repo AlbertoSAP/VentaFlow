@@ -9,6 +9,7 @@ import {
   fullName,
   subscribeOwnClient,
   type Client,
+  type FiadoItem,
 } from "./storage.ts";
 import { useAuth, mapAuthError } from "./hooks/useAuth.ts";
 import { useClient } from "./hooks/useClient.tsx";
@@ -353,6 +354,8 @@ function ListaClientes({
   const [formError, setFormError] = useState("");
   const [busy, setBusy] = useState(false);
   const [creado, setCreado] = useState<CreadoInfo | null>(null);
+  const [clienteAEliminar, setClienteAEliminar] = useState<Client | null>(null);
+  const [avisoEliminar, setAvisoEliminar] = useState<Client | null>(null);
 
   const agregar = async (e: FormEvent) => {
     e.preventDefault();
@@ -375,8 +378,20 @@ function ListaClientes({
     setTelephone("");
   };
 
-  const eliminar = async (c: Client) => {
-    const msg = await deleteClient(c.id, fullName(c));
+  // Eliminar exige pasar por el modal: si el cliente tiene registros
+  // se muestra el aviso de bloqueo; si no, la confirmación de borrado.
+  const eliminar = (c: Client) => {
+    const hasRecords =
+      (c.items?.length ?? 0) > 0 || (c.pagos?.length ?? 0) > 0;
+    if (hasRecords) setAvisoEliminar(c);
+    else setClienteAEliminar(c);
+  };
+
+  const confirmarEliminar = async () => {
+    if (!clienteAEliminar) return;
+    const target = clienteAEliminar;
+    setClienteAEliminar(null);
+    const msg = await deleteClient(target.id, fullName(target));
     if (msg) alert(msg);
   };
 
@@ -470,7 +485,7 @@ function ListaClientes({
                   className="link danger"
                   onClick={(e) => {
                     e.stopPropagation();
-                    void eliminar(c);
+                    eliminar(c);
                   }}
                 >
                   eliminar
@@ -485,7 +500,76 @@ function ListaClientes({
           </p>
         )}
       </div>
+
+      {avisoEliminar && (
+        <ConfirmModal
+          title="No se puede eliminar"
+          message={`${fullName(avisoEliminar)} tiene productos fiados o abonos registrados. Un cliente con registros no puede ser eliminado.`}
+          confirmLabel="Entendido"
+          cancelLabel={null}
+          confirmTone="primary"
+          onConfirm={() => setAvisoEliminar(null)}
+          onCancel={() => setAvisoEliminar(null)}
+        />
+      )}
+
+      {clienteAEliminar && (
+        <ConfirmModal
+          title={`¿Eliminar a ${fullName(clienteAEliminar)}?`}
+          message="Se eliminará su registro y su cuenta quedará sin acceso a la app. Esta acción no se puede deshacer."
+          confirmLabel="Sí, eliminar"
+          onConfirm={() => void confirmarEliminar()}
+          onCancel={() => setClienteAEliminar(null)}
+        />
+      )}
     </main>
+  );
+}
+
+/* =============== Modal de confirmación reutilizable =============== */
+
+interface ConfirmModalProps {
+  title: string;
+  message: string;
+  confirmLabel: string;
+  /** null = sin botón de cancelar (modal de solo aviso) */
+  cancelLabel?: string | null;
+  /** danger = botón rojo (acciones destructivas), primary = azul */
+  confirmTone?: "danger" | "primary";
+  onConfirm: () => void;
+  onCancel: () => void;
+}
+
+function ConfirmModal({
+  title,
+  message,
+  confirmLabel,
+  cancelLabel = "Cancelar",
+  confirmTone = "danger",
+  onConfirm,
+  onCancel,
+}: ConfirmModalProps) {
+  return (
+    <div className="modal-overlay" onClick={onCancel}>
+      <div className="modal-card" onClick={(e) => e.stopPropagation()}>
+        <h3>{title}</h3>
+        <p className="mut">{message}</p>
+        <div className="modal-actions">
+          {cancelLabel !== null && (
+            <button className="btn btn-cancel" type="button" onClick={onCancel}>
+              {cancelLabel}
+            </button>
+          )}
+          <button
+            className={`btn ${confirmTone === "danger" ? "btn-danger" : "btn-primary"}`}
+            type="button"
+            onClick={onConfirm}
+          >
+            {confirmLabel}
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -500,6 +584,8 @@ function DetalleCliente({ onSave, cliente }: DetalleProps) {
   const [precio, setPrecio] = useState("");
   const [cantidad, setCantidad] = useState("1");
   const [montoPago, setMontoPago] = useState("");
+  const [itemAQuitar, setItemAQuitar] = useState<FiadoItem | null>(null);
+  const [confirmarSaldar, setConfirmarSaldar] = useState(false);
 
   if (!cliente)
     return (
@@ -534,10 +620,15 @@ function DetalleCliente({ onSave, cliente }: DetalleProps) {
     setCantidad("1");
   };
 
-  const quitarItem = (itemId: string) => {
+  // Quitar un producto exige confirmación en el modal: un clic
+  // accidental no debe poder alterar la cuenta del cliente.
+  const confirmarQuitarItem = () => {
+    if (!itemAQuitar) return;
+    const itemId = itemAQuitar.id;
     guardar((c) => {
       c.items = c.items.filter((it) => it.id !== itemId);
     });
+    setItemAQuitar(null);
   };
 
   const registrarPago = (e: FormEvent) => {
@@ -550,11 +641,12 @@ function DetalleCliente({ onSave, cliente }: DetalleProps) {
     setMontoPago("");
   };
 
-  const saldar = () => {
-    if (d <= 0 || !confirm(`¿Registrar pago total de ${fmtMoney(d)}?`)) return;
+  // Saldar también pasa por el modal: registra un abono por el total.
+  const confirmarSaldarPago = () => {
     guardar((c) => {
       c.pagos.unshift({ id: uid(), monto: d, fecha: Date.now() });
     });
+    setConfirmarSaldar(false);
   };
 
   return (
@@ -623,7 +715,10 @@ function DetalleCliente({ onSave, cliente }: DetalleProps) {
             </div>
             <div className="right">
               <strong>{fmtMoney(it.precio * (it.cantidad || 1))}</strong>
-              <button className="link danger" onClick={() => quitarItem(it.id)}>
+              <button
+                className="link danger"
+                onClick={() => setItemAQuitar(it)}
+              >
                 quitar
               </button>
             </div>
@@ -663,7 +758,11 @@ function DetalleCliente({ onSave, cliente }: DetalleProps) {
             Abonar
           </button>
           {d > 0 && (
-            <button className="btn btn-ghost" type="button" onClick={saldar}>
+            <button
+              className="btn btn-ghost"
+              type="button"
+              onClick={() => setConfirmarSaldar(true)}
+            >
               Saldar todo
             </button>
           )}
@@ -679,6 +778,27 @@ function DetalleCliente({ onSave, cliente }: DetalleProps) {
           </div>
         )}
       </form>
+
+      {itemAQuitar && (
+        <ConfirmModal
+          title="¿Quitar este producto?"
+          message={`Se quitará "${itemAQuitar.descripcion}" (${fmtMoney(itemAQuitar.precio * (itemAQuitar.cantidad || 1))}) de la cuenta de ${fullName(cliente)}. Esta acción no se puede deshacer.`}
+          confirmLabel="Sí, quitar"
+          onConfirm={confirmarQuitarItem}
+          onCancel={() => setItemAQuitar(null)}
+        />
+      )}
+
+      {confirmarSaldar && (
+        <ConfirmModal
+          title="¿Saldar toda la deuda?"
+          message={`Se registrará un abono de ${fmtMoney(d)} y la cuenta de ${fullName(cliente)} quedará en cero.`}
+          confirmLabel="Sí, saldar"
+          confirmTone="primary"
+          onConfirm={confirmarSaldarPago}
+          onCancel={() => setConfirmarSaldar(false)}
+        />
+      )}
     </main>
   );
 }
