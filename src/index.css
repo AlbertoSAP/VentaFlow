@@ -7,6 +7,10 @@ body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg); co
 .page { min-height: 100vh; }
 .topbar { position: sticky; top: 0; z-index: 20; background: #0f172a; color: #fff; padding: 14px 18px; display: flex; justify-content: space-between; align-items: center; }
 .logo { font-weight: 800; font-size: 1.2rem; }
+.topbar .nav { display: flex; gap: 6px; }
+.nav-btn { background: transparent; border: none; color: #94a3b8; font-size: .92rem; font-weight: 600; padding: 8px 14px; border-radius: 10px; cursor: pointer; transition: background .15s, color .15s; }
+.nav-btn:hover { background: rgba(255,255,255,.08); color: #fff; }
+.nav-btn.active { background: #1e293b; color: #fff; }
 .wrap { max-width: 720px; margin: 0 auto; padding: 18px 14px 60px; display: flex; flex-direction: column; gap: 16px; }
 .resumen { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .resumen > div { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 16px; display: flex; flex-direction: column; gap: 4px; }
@@ -49,3 +53,14 @@ input:focus { outline: 2px solid var(--pri); border-color: var(--pri); }
 .gran-total { border-top: 2px solid var(--line); padding-top: 10px; font-size: 1.2rem; }
 .pagos { margin-top: 14px; display: flex; flex-direction: column; gap: 6px; }
 .pago-row { display: flex; justify-content: space-between; background: #f0fdf4; border-radius: 8px; padding: 8px 12px; }
+.metric { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 16px; display: flex; flex-direction: column; gap: 4px; }
+.metric span { color: var(--mut); font-size: .82rem; }
+.metric strong { font-size: 1.4rem; }
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 18px; display: flex; flex-direction: column; gap: 14px; }
+.card h3 { font-size: 1.05rem; }
+.bar-row { display: grid; grid-template-columns: 1fr auto; gap: 10px; align-items: center; padding: 8px 0; }
+.bar-meta { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.bar-meta strong { font-size: .95rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bar-track { background: #e2e8f0; border-radius: 6px; height: 10px; overflow: hidden; }
+.bar-fill { background: linear-gradient(90deg, var(--pri), #60a5fa); height: 100%; border-radius: 6px; transition: width .4s ease; }
+.bar-val { font-size: .95rem; }
