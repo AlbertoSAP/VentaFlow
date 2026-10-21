@@ -249,6 +249,43 @@ describe("vista del vendedor", () => {
     });
   });
 
+  it("si los abonos superan el fiado, el detalle muestra el saldo a favor", async () => {
+    const user = userEvent.setup();
+    setAuth(VENDOR);
+    setClientsHook({
+      clients: [
+        makeClient({
+          id: "a1",
+          pagos: [{ id: "p1", monto: 200, fecha: 1791845068683 }],
+        }),
+      ],
+    });
+    render(<App />);
+
+    await user.click(screen.getByRole("button", { name: /Clientes/ }));
+    await user.click(screen.getByText("Ana López"));
+
+    expect(screen.getByText("Saldo a favor:")).toBeInTheDocument();
+    expect(screen.getByText("+ C$ 80.00")).toBeInTheDocument();
+  });
+
+  it("el modal de quitar advierte cuando quedará saldo a favor", async () => {
+    const user = userEvent.setup();
+    setAuth(VENDOR);
+    setClientsHook({ clients: [makeClient({ id: "a1" })] });
+    render(<App />);
+
+    await user.click(screen.getByRole("button", { name: /Clientes/ }));
+    await user.click(screen.getByText("Ana López"));
+    await user.click(screen.getByRole("button", { name: "quitar" }));
+
+    // fixture: fiado 120 (un producto), abonado 20 → al quitarlo
+    // quedan C$ 20.00 abonados sin producto que los respalde
+    expect(
+      screen.getByText(/quedará un saldo a favor del cliente de C\$ 20\.00/),
+    ).toBeInTheDocument();
+  });
+
   it("saldar todo confirma en el modal y registra el abono por la deuda", async () => {
     const user = userEvent.setup();
     const saveClient = jest.fn(async () => {});
@@ -306,6 +343,37 @@ describe("vista del cliente (solo lectura)", () => {
     expect(
       screen.queryByRole("button", { name: "quitar" }),
     ).not.toBeInTheDocument();
+  });
+
+  it("la vista del cliente también muestra su saldo a favor", async () => {
+    __fakeDb.setData({
+      clientes: {
+        "cli-2": {
+          idAuthVendedor: "vendor-1",
+          name: "Luis",
+          lastName: "Pérez",
+          email: "99998888@ventaflow.app",
+          telephone: "99998888",
+          created: 1,
+          items: [
+            {
+              id: "i1",
+              descripcion: "Arroz",
+              precio: 50,
+              cantidad: 1,
+              fecha: 1791845068683,
+            },
+          ],
+          pagos: [{ id: "p1", monto: 80, fecha: 1791845068683 }],
+        },
+      },
+    });
+    setAuth({ user: { uid: "cli-2" }, role: "cliente" });
+    render(<App />);
+
+    expect(await screen.findByText(/Hola, Luis/)).toBeInTheDocument();
+    expect(screen.getByText("Saldo a favor:")).toBeInTheDocument();
+    expect(screen.getByText("+ C$ 30.00")).toBeInTheDocument();
   });
 });
 

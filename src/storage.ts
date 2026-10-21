@@ -99,6 +99,14 @@ export function deuda(c: Client): number {
   return Math.max(0, totalItems(c) - totalPagos(c));
 }
 
+/**
+ * Dinero abonado por encima del total fiado: queda a favor del
+ * cliente (pasa, por ejemplo, si se quitan productos ya abonados).
+ */
+export function saldoAFavor(c: Client): number {
+  return Math.max(0, totalPagos(c) - totalItems(c));
+}
+
 // ---------- Vendedores ----------
 export function writeVendorProfile(v: Vendor): Promise<void> {
   const { id, ...profile } = v;

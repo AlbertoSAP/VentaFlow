@@ -7,6 +7,7 @@ import {
   totalItems,
   totalPagos,
   deuda,
+  saldoAFavor,
   getUserRole,
   writeClient,
   deleteClientRecord,
@@ -79,6 +80,15 @@ describe("cálculos de la cuenta", () => {
       pagos: [{ id: "p", monto: 9999, fecha: 1 }],
     });
     expect(deuda(sobrepagado)).toBe(0);
+  });
+
+  it("saldoAFavor es el excedente de abonos sobre el fiado", () => {
+    expect(saldoAFavor(makeClient())).toBe(0); // aún debe 100
+    const conExcedente = makeClient({
+      pagos: [{ id: "p", monto: 200, fecha: 1 }],
+    });
+    expect(saldoAFavor(conExcedente)).toBe(80); // abonó 200 de 120 fiados
+    expect(saldoAFavor(makeClient({ items: [], pagos: [] }))).toBe(0);
   });
 });
 

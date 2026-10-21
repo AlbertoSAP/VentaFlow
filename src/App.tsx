@@ -6,6 +6,7 @@ import {
   totalItems,
   totalPagos,
   deuda,
+  saldoAFavor,
   fullName,
   subscribeOwnClient,
   type Client,
@@ -596,6 +597,14 @@ function DetalleCliente({ onSave, cliente }: DetalleProps) {
 
   const d = deuda(cliente);
 
+  // Si al quitar el producto los abonos superan el fiado restante,
+  // queda un saldo a favor: el modal lo advierte antes de confirmar.
+  const saldoTrasQuitar = itemAQuitar
+    ? totalPagos(cliente) -
+      (totalItems(cliente) -
+        itemAQuitar.precio * (itemAQuitar.cantidad || 1))
+    : 0;
+
   const guardar = (mutate: (c: Client) => void) => {
     const next = structuredClone(cliente);
     mutate(next);
@@ -735,6 +744,14 @@ function DetalleCliente({ onSave, cliente }: DetalleProps) {
               − {fmtMoney(totalPagos(cliente))}
             </strong>
           </div>
+          {saldoAFavor(cliente) > 0 && (
+            <div>
+              <span>Saldo a favor:</span>
+              <strong className="pagado">
+                + {fmtMoney(saldoAFavor(cliente))}
+              </strong>
+            </div>
+          )}
           <div className="gran-total">
             <span>Deuda actual:</span>
             <strong className="deuda">{fmtMoney(d)}</strong>
@@ -782,7 +799,7 @@ function DetalleCliente({ onSave, cliente }: DetalleProps) {
       {itemAQuitar && (
         <ConfirmModal
           title="¿Quitar este producto?"
-          message={`Se quitará "${itemAQuitar.descripcion}" (${fmtMoney(itemAQuitar.precio * (itemAQuitar.cantidad || 1))}) de la cuenta de ${fullName(cliente)}. Esta acción no se puede deshacer.`}
+          message={`Se quitará "${itemAQuitar.descripcion}" (${fmtMoney(itemAQuitar.precio * (itemAQuitar.cantidad || 1))}) de la cuenta de ${fullName(cliente)}.${saldoTrasQuitar > 0 ? ` Ojo: ya abonó ${fmtMoney(totalPagos(cliente))}, así que quedará un saldo a favor del cliente de ${fmtMoney(saldoTrasQuitar)}.` : ""} Esta acción no se puede deshacer.`}
           confirmLabel="Sí, quitar"
           onConfirm={confirmarQuitarItem}
           onCancel={() => setItemAQuitar(null)}
@@ -883,6 +900,14 @@ function ClientApp({ clientUid, onLogout }: ClientProps) {
                   − {fmtMoney(totalPagos(cliente))}
                 </strong>
               </div>
+              {saldoAFavor(cliente) > 0 && (
+                <div>
+                  <span>Saldo a favor:</span>
+                  <strong className="pagado">
+                    + {fmtMoney(saldoAFavor(cliente))}
+                  </strong>
+                </div>
+              )}
               <div className="gran-total">
                 <span>Deuda actual:</span>
                 <strong className="deuda">
