@@ -540,7 +540,7 @@ interface ConfirmModalProps {
   onCancel: () => void;
 }
 
-function ConfirmModal({
+export function ConfirmModal({
   title,
   message,
   confirmLabel,

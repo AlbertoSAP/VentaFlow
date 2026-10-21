@@ -5,9 +5,20 @@
     "react-dom": "^18.3.1"
   },
   "devDependencies": {
+    "@babel/core": "^8.0.7",
+    "@babel/preset-env": "^8.0.7",
+    "@babel/preset-react": "^8.0.1",
+    "@babel/preset-typescript": "^8.0.7",
+    "@testing-library/jest-dom": "^7.0.1",
+    "@testing-library/react": "^16.3.3",
+    "@testing-library/user-event": "^14.6.8",
+    "@types/jest": "^30.0.0",
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
     "@vitejs/plugin-react": "^4.3.3",
+    "babel-jest": "^30.5.2",
+    "jest": "^30.5.2",
+    "jest-environment-jsdom": "^30.5.2",
     "typescript": "~5.6.2",
     "vite": "^5.4.11"
   },
@@ -16,7 +27,9 @@
   "scripts": {
     "build": "tsc -b && vite build",
     "dev": "vite",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test": "jest",
+    "test:watch": "jest --watch"
   },
   "type": "module",
   "version": "1.0.0"
