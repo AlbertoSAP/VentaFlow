@@ -1,4 +1,14 @@
-import { ref, onValue, set, type Unsubscribe } from "firebase/database";
+import {
+  ref,
+  onValue,
+  set,
+  get,
+  remove,
+  query,
+  orderByChild,
+  equalTo,
+  type Unsubscribe,
+} from "firebase/database";
 import { database } from "./firebase.ts";
 
 // ---------- Tipos ----------
@@ -16,74 +26,49 @@ export interface Pago {
   fecha: number;
 }
 
-export interface Client {
-  id: string;
+export interface Vendor {
+  id: string; // UID de Firebase Auth
   name: string;
+  email: string;
+  created: number;
+}
+
+export interface Client {
+  id: string; // UID de Firebase Auth del cliente (es la clave del registro)
+  idAuthVendedor: string; // UID del vendedor dueño de este cliente
+  name: string;
+  lastName: string;
+  email: string; // email de login (generado desde el teléfono)
   telephone: string;
   created: number;
   items: FiadoItem[];
   pagos: Pago[];
 }
 
-export interface DB {
-  clientes: Client[];
-}
-
-// ---------- Normalización (datos legacy en español) ----------
-// Antes del refactor los clientes se guardaban como
-// { nombre, telefono, creado }. Al leerlos se convierten al
-// modelo en inglés para no perder ningún dato ya guardado;
-// al escribir, ya quedan persistidos con el esquema nuevo.
-interface LegacyClient {
-  id?: string;
-  name?: string;
-  nombre?: string;
-  telephone?: string;
-  telefono?: string;
-  created?: number;
-  creado?: number;
-  items?: FiadoItem[];
-  pagos?: Pago[];
-}
-
-function normalizeClient(raw: LegacyClient): Client {
-  return {
-    id: raw.id ?? uid(),
-    name: raw.name ?? raw.nombre ?? "",
-    telephone: raw.telephone ?? raw.telefono ?? "",
-    created: raw.created ?? raw.creado ?? Date.now(),
-    items: raw.items ?? [],
-    pagos: raw.pagos ?? [],
-  };
-}
-
-function normalizeDB(raw: { clientes?: LegacyClient[] | Record<string, LegacyClient> } | null): DB {
-  if (!raw?.clientes) return { clientes: [] };
-  // Firebase puede devolver la lista como arreglo o como objeto.
-  const list = Array.isArray(raw.clientes)
-    ? raw.clientes
-    : Object.values(raw.clientes);
-  return { clientes: list.map(normalizeClient) };
-}
-
-// ---------- Firebase Realtime Database ----------
-const PATH = "fiados";
-
-/** Suscripción en tiempo real: llama a `cb` con los datos cada vez que cambian */
-export function subscribeDB(cb: (db: DB) => void): Unsubscribe {
-  const r = ref(database, PATH);
-  return onValue(r, (snap) => {
-    cb(normalizeDB(snap.val() as { clientes?: LegacyClient[] } | null));
-  });
-}
-
-/** Escribe todo el estado en Firebase */
-export function writeDB(db: DB): Promise<void> {
-  return set(ref(database, PATH), db);
-}
+export type Rol = "vendedor" | "cliente";
 
 // ---------- Utilidades ----------
 export const uid = (): string => Math.random().toString(36).slice(2, 10);
+
+export const fullName = (c: Client): string =>
+  `${c.name} ${c.lastName}`.trim();
+
+/**
+ * El cliente entra con su teléfono: internamente su cuenta de
+ * Firebase Auth usa un email generado con ese número.
+ * Ej: "8888 7777" -> "88887777@ventaflow.app"
+ */
+export const phoneToEmail = (telephone: string): string =>
+  `${telephone.replace(/\D/g, "")}@ventaflow.app`;
+
+/** Contraseña temporal para un cliente nuevo: se muestra una sola vez */
+export function generateTempPassword(): string {
+  const chars = "ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789";
+  let out = "";
+  for (let i = 0; i < 10; i++)
+    out += chars[Math.floor(Math.random() * chars.length)];
+  return out;
+}
 
 export const fmtMoney = (n: number): string =>
   "C$ " +
@@ -112,4 +97,84 @@ export function totalPagos(c: Client): number {
 
 export function deuda(c: Client): number {
   return Math.max(0, totalItems(c) - totalPagos(c));
+}
+
+// ---------- Vendedores ----------
+export function writeVendorProfile(v: Vendor): Promise<void> {
+  const { id, ...profile } = v;
+  return set(ref(database, `vendedores/${id}`), profile);
+}
+
+// ---------- Roles ----------
+/** Determina el rol de un UID: primero vendedor, si no, cliente */
+export async function getUserRole(uidAuth: string): Promise<Rol | null> {
+  const vend = await get(ref(database, `vendedores/${uidAuth}`));
+  if (vend.exists()) return "vendedor";
+  const cli = await get(ref(database, `clientes/${uidAuth}`));
+  if (cli.exists()) return "cliente";
+  return null;
+}
+
+// ---------- Clientes ----------
+type ClientRecord = Omit<Client, "id">;
+
+function toClient(id: string, r: Partial<ClientRecord>): Client {
+  return {
+    id,
+    idAuthVendedor: r.idAuthVendedor ?? "",
+    name: r.name ?? "",
+    lastName: r.lastName ?? "",
+    email: r.email ?? "",
+    telephone: r.telephone ?? "",
+    created: r.created ?? Date.now(),
+    items: r.items ?? [],
+    pagos: r.pagos ?? [],
+  };
+}
+
+/** Clientes de UN vendedor (consulta por idAuthVendedor) en tiempo real */
+export function subscribeVendorClients(
+  vendorUid: string,
+  cb: (clients: Client[]) => void,
+): Unsubscribe {
+  const q = query(
+    ref(database, "clientes"),
+    orderByChild("idAuthVendedor"),
+    equalTo(vendorUid),
+  );
+  return onValue(q, (snap) => {
+    const val = (snap.val() as Record<string, Partial<ClientRecord>> | null) ?? {};
+    cb(Object.entries(val).map(([id, r]) => toClient(id, r)));
+  });
+}
+
+/** El registro de UN cliente (para su vista de solo lectura) en tiempo real */
+export function subscribeOwnClient(
+  clientUid: string,
+  cb: (client: Client | null) => void,
+): Unsubscribe {
+  return onValue(ref(database, `clientes/${clientUid}`), (snap) => {
+    if (!snap.exists()) return cb(null);
+    cb(toClient(clientUid, snap.val() as Partial<ClientRecord>));
+  });
+}
+
+/** Crea o actualiza el registro completo de un cliente */
+export function writeClient(client: Client): Promise<void> {
+  const { id, ...record } = client;
+  return set(ref(database, `clientes/${id}`), record);
+}
+
+/** Índice cliente -> vendedor, para ubicar el registro tras el login */
+export function writeClientIndex(
+  clientUid: string,
+  vendorUid: string,
+): Promise<void> {
+  return set(ref(database, `clienteIndex/${clientUid}`), vendorUid);
+}
+
+/** Elimina el registro del cliente y su índice (la cuenta Auth no se puede borrar sin Admin SDK) */
+export async function deleteClientRecord(clientUid: string): Promise<void> {
+  await remove(ref(database, `clientes/${clientUid}`));
+  await remove(ref(database, `clienteIndex/${clientUid}`));
 }

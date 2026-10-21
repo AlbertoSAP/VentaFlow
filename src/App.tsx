@@ -1,4 +1,4 @@
-import { useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 import {
   uid,
   fmtMoney,
@@ -6,53 +6,256 @@ import {
   totalItems,
   totalPagos,
   deuda,
-  type DB,
+  fullName,
+  subscribeOwnClient,
   type Client,
 } from "./storage.ts";
+import { useAuth, mapAuthError } from "./hooks/useAuth.ts";
 import { useClient } from "./hooks/useClient.tsx";
 import Dashboard, { metricas } from "./Dashboard.tsx";
 
-type Vista =
-  { tipo: "lista" } | { tipo: "detalle"; id: string } | { tipo: "dashboard" };
-
 function App() {
-  const { db, upsert, createClient, deleteClient } = useClient();
-  const [vista, setVista] = useState<Vista>({ tipo: "dashboard" });
-  const [busqueda, setBusqueda] = useState("");
+  const { user, role, resolving, registerVendor, loginVendor, loginClient, logout } =
+    useAuth();
 
-  // Los Hooks se ejecutan antes de cualquier retorno anticipado.
-  const clientesFiltrados = useMemo(() => {
-    if (!db) return [];
-
-    const q = busqueda.trim().toLowerCase();
-
-    return db.clientes.filter((c) => !q || c.name.toLowerCase().includes(q));
-  }, [db, busqueda]);
-
-  const totalPorCobrar = db ? db.clientes.reduce((s, c) => s + deuda(c), 0) : 0;
-
-  if (!db) {
+  if (resolving) {
     return (
       <div className="page">
         <header className="topbar">
-          <span className="logo">📒 Fiados</span>
+          <span className="logo">📒 VentaFlow</span>
         </header>
-
         <main className="wrap">
-          <p className="mut center">Conectando con Firebase…</p>
+          <p className="mut center">Conectando…</p>
         </main>
       </div>
     );
   }
 
-  // Ya sabemos que db no es null.
-  // No necesitamos useMemo para este cálculo.
-  const m = metricas(db);
+  if (!user) {
+    return (
+      <AuthScreen
+        onLoginVendor={loginVendor}
+        onLoginClient={loginClient}
+        onRegisterVendor={registerVendor}
+      />
+    );
+  }
+
+  if (role === "vendedor") {
+    return <VendorApp vendorUid={user.uid} onLogout={logout} />;
+  }
+
+  if (role === "cliente") {
+    return <ClientApp clientUid={user.uid} onLogout={logout} />;
+  }
+
+  // Hay sesión pero ningún registro asociado (ej: la cuenta quedó
+  // huérfana porque su registro fue eliminado por el vendedor).
+  return (
+    <div className="page">
+      <header className="topbar">
+        <span className="logo">📒 VentaFlow</span>
+        <button className="btn btn-ghost" onClick={() => void logout()}>
+          Salir
+        </button>
+      </header>
+      <main className="wrap">
+        <p className="mut center">
+          Esta cuenta no tiene un registro activo en VentaFlow. Si eras
+          cliente, pide a tu vendedor que te registre de nuevo.
+        </p>
+      </main>
+    </div>
+  );
+}
+
+/* ==================== Pantalla de acceso ==================== */
+
+interface AuthProps {
+  onLoginVendor: (email: string, password: string) => Promise<void>;
+  onLoginClient: (telephone: string, password: string) => Promise<void>;
+  onRegisterVendor: (
+    name: string,
+    email: string,
+    password: string,
+  ) => Promise<void>;
+}
+
+function AuthScreen({ onLoginVendor, onLoginClient, onRegisterVendor }: AuthProps) {
+  const [mode, setMode] = useState<"login" | "register">("login");
+  const [loginAs, setLoginAs] = useState<"vendedor" | "cliente">("vendedor");
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [telephone, setTelephone] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  const submit = async (e: FormEvent) => {
+    e.preventDefault();
+    setError("");
+    setBusy(true);
+    try {
+      if (mode === "register") {
+        await onRegisterVendor(name, email, password);
+      } else if (loginAs === "vendedor") {
+        await onLoginVendor(email, password);
+      } else {
+        await onLoginClient(telephone, password);
+      }
+    } catch (err) {
+      setError(mapAuthError(err));
+    } finally {
+      setBusy(false);
+    }
+  };
 
   return (
     <div className="page">
       <header className="topbar">
-        <span className="logo">📒 Fiados</span>
+        <span className="logo">📒 VentaFlow</span>
+      </header>
+
+      <main className="wrap" style={{ maxWidth: 480 }}>
+        <div className="form-card">
+          <div className="seg">
+            <button
+              type="button"
+              className={`seg-btn${mode === "login" ? " active" : ""}`}
+              onClick={() => setMode("login")}
+            >
+              Iniciar sesión
+            </button>
+            <button
+              type="button"
+              className={`seg-btn${mode === "register" ? " active" : ""}`}
+              onClick={() => setMode("register")}
+            >
+              Crear cuenta de vendedor
+            </button>
+          </div>
+
+          <form className="stack" onSubmit={submit}>
+            {mode === "register" && (
+              <>
+                <input
+                  placeholder="Tu nombre *"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                />
+                <input
+                  type="email"
+                  placeholder="Tu correo *"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                />
+                <input
+                  type="password"
+                  placeholder="Contraseña (mín. 6 caracteres) *"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                />
+                <p className="mut small">
+                  El registro es solo para vendedores. Las cuentas de
+                  cliente las crea su vendedor desde la app.
+                </p>
+              </>
+            )}
+
+            {mode === "login" && (
+              <>
+                <div className="seg">
+                  <button
+                    type="button"
+                    className={`seg-btn${loginAs === "vendedor" ? " active" : ""}`}
+                    onClick={() => setLoginAs("vendedor")}
+                  >
+                    Soy vendedor
+                  </button>
+                  <button
+                    type="button"
+                    className={`seg-btn${loginAs === "cliente" ? " active" : ""}`}
+                    onClick={() => setLoginAs("cliente")}
+                  >
+                    Soy cliente
+                  </button>
+                </div>
+
+                {loginAs === "vendedor" ? (
+                  <input
+                    type="email"
+                    placeholder="Tu correo *"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                  />
+                ) : (
+                  <>
+                    <input
+                      placeholder="Tu número de teléfono *"
+                      value={telephone}
+                      onChange={(e) => setTelephone(e.target.value)}
+                    />
+                    <p className="mut small">
+                      Entrás con el teléfono que te registró tu vendedor y
+                      la contraseña que te entregó.
+                    </p>
+                  </>
+                )}
+                <input
+                  type="password"
+                  placeholder="Contraseña *"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                />
+              </>
+            )}
+
+            {error && <p className="error">{error}</p>}
+
+            <button className="btn btn-primary" type="submit" disabled={busy}>
+              {busy
+                ? "Espera…"
+                : mode === "register"
+                  ? "Crear mi cuenta"
+                  : "Entrar"}
+            </button>
+          </form>
+        </div>
+      </main>
+    </div>
+  );
+}
+
+/* ==================== Vista del vendedor ==================== */
+
+type Vista =
+  { tipo: "lista" } | { tipo: "detalle"; id: string } | { tipo: "dashboard" };
+
+interface VendorProps {
+  vendorUid: string;
+  onLogout: () => Promise<void>;
+}
+
+function VendorApp({ vendorUid, onLogout }: VendorProps) {
+  const { clients, loading, createClient, deleteClient, saveClient } =
+    useClient(vendorUid);
+  const [vista, setVista] = useState<Vista>({ tipo: "dashboard" });
+  const [busqueda, setBusqueda] = useState("");
+
+  const clientesFiltrados = useMemo(() => {
+    const q = busqueda.trim().toLowerCase();
+    return clients.filter(
+      (c) => !q || fullName(c).toLowerCase().includes(q),
+    );
+  }, [clients, busqueda]);
+
+  const totalPorCobrar = clients.reduce((s, c) => s + deuda(c), 0);
+  const m = metricas(clients);
+
+  return (
+    <div className="page">
+      <header className="topbar">
+        <span className="logo">📒 VentaFlow</span>
 
         <nav className="nav">
           <button
@@ -71,14 +274,26 @@ function App() {
             Clientes
             {m.clientesConDeuda > 0 ? ` (${m.clientesConDeuda})` : ""}
           </button>
+
+          <button
+            type="button"
+            className="nav-btn"
+            onClick={() => void onLogout()}
+          >
+            Salir
+          </button>
         </nav>
       </header>
 
-      {vista.tipo === "dashboard" ? (
-        <Dashboard db={db} />
+      {loading ? (
+        <main className="wrap">
+          <p className="mut center">Cargando tus clientes…</p>
+        </main>
+      ) : vista.tipo === "dashboard" ? (
+        <Dashboard clientes={clients} />
       ) : vista.tipo === "lista" ? (
         <ListaClientes
-          db={db}
+          allClients={clients}
           createClient={createClient}
           deleteClient={deleteClient}
           busqueda={busqueda}
@@ -89,8 +304,8 @@ function App() {
         />
       ) : (
         <DetalleCliente
-          upsert={upsert}
-          cliente={db.clientes.find((c) => c.id === vista.id)}
+          onSave={saveClient}
+          cliente={clients.find((c) => c.id === vista.id)}
           onVolver={() => setVista({ tipo: "lista" })}
         />
       )}
@@ -98,10 +313,23 @@ function App() {
   );
 }
 
+interface CreadoInfo {
+  nombre: string;
+  telephone: string;
+  tempPassword: string;
+}
+
 interface ListaProps {
-  db: DB;
-  createClient: (input: { name: string; telephone: string }) => boolean;
-  deleteClient: (id: string, name: string) => void;
+  allClients: Client[];
+  createClient: (input: {
+    name: string;
+    lastName: string;
+    telephone: string;
+  }) => Promise<
+    | { ok: true; client: Client; tempPassword: string }
+    | { ok: false; error: string }
+  >;
+  deleteClient: (id: string, name: string) => Promise<string | null>;
   busqueda: string;
   setBusqueda: (v: string) => void;
   clientes: Client[];
@@ -110,7 +338,7 @@ interface ListaProps {
 }
 
 function ListaClientes({
-  db,
+  allClients,
   createClient,
   deleteClient,
   busqueda,
@@ -120,13 +348,36 @@ function ListaClientes({
   onAbrir,
 }: ListaProps) {
   const [name, setName] = useState("");
+  const [lastName, setLastName] = useState("");
   const [telephone, setTelephone] = useState("");
+  const [formError, setFormError] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [creado, setCreado] = useState<CreadoInfo | null>(null);
 
-  const agregar = (e: FormEvent) => {
+  const agregar = async (e: FormEvent) => {
     e.preventDefault();
-    if (!createClient({ name, telephone })) return;
+    setFormError("");
+    setCreado(null);
+    setBusy(true);
+    const result = await createClient({ name, lastName, telephone });
+    setBusy(false);
+    if (!result.ok) {
+      setFormError(result.error);
+      return;
+    }
+    setCreado({
+      nombre: fullName(result.client),
+      telephone: result.client.telephone,
+      tempPassword: result.tempPassword,
+    });
     setName("");
+    setLastName("");
     setTelephone("");
+  };
+
+  const eliminar = async (c: Client) => {
+    const msg = await deleteClient(c.id, fullName(c));
+    if (msg) alert(msg);
   };
 
   return (
@@ -138,26 +389,53 @@ function ListaClientes({
         </div>
         <div>
           <span>Clientes con deuda</span>
-          <strong>{db.clientes.filter((c) => deuda(c) > 0).length}</strong>
+          <strong>{allClients.filter((c) => deuda(c) > 0).length}</strong>
         </div>
       </div>
 
       <form className="form-card" onSubmit={agregar}>
         <h3>Agregar cliente</h3>
-        <div className="row">
-          <input
-            placeholder="Nombre del cliente *"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-          />
-          <input
-            placeholder="Teléfono (opcional)"
-            value={telephone}
-            onChange={(e) => setTelephone(e.target.value)}
-          />
-          <button className="btn btn-primary" type="submit">
-            Agregar
-          </button>
+        <div className="stack">
+          <div className="row">
+            <input
+              placeholder="Nombre *"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+            />
+            <input
+              placeholder="Apellido"
+              value={lastName}
+              onChange={(e) => setLastName(e.target.value)}
+            />
+          </div>
+          <div className="row">
+            <input
+              placeholder="Teléfono (será su usuario para entrar) *"
+              value={telephone}
+              onChange={(e) => setTelephone(e.target.value)}
+            />
+            <button className="btn btn-primary" type="submit" disabled={busy}>
+              {busy ? "Creando…" : "Agregar"}
+            </button>
+          </div>
+          <p className="mut small">
+            Al agregarlo se crea también su cuenta: entrará con su teléfono
+            y la contraseña temporal que se genera aquí.
+          </p>
+          {formError && <p className="error">{formError}</p>}
+          {creado && (
+            <div className="success-card">
+              <strong>✅ Cuenta creada para {creado.nombre}</strong>
+              <span>
+                Usuario: <b>{creado.telephone}</b> · Contraseña temporal:{" "}
+                <b>{creado.tempPassword}</b>
+              </span>
+              <span className="small">
+                Entrégale estos datos ahora: la contraseña no se guarda y
+                no se puede volver a ver.
+              </span>
+            </div>
+          )}
         </div>
       </form>
 
@@ -178,7 +456,7 @@ function ListaClientes({
               onClick={() => onAbrir(c.id)}
             >
               <div>
-                <strong>{c.name}</strong>
+                <strong>{fullName(c)}</strong>
                 {c.telephone && <span className="mut"> · {c.telephone}</span>}
                 <div className="mut small">
                   {c.items?.length || 0} productos fiados
@@ -192,7 +470,7 @@ function ListaClientes({
                   className="link danger"
                   onClick={(e) => {
                     e.stopPropagation();
-                    deleteClient(c.id, c.name);
+                    void eliminar(c);
                   }}
                 >
                   eliminar
@@ -212,12 +490,12 @@ function ListaClientes({
 }
 
 interface DetalleProps {
-  upsert: (fn: (d: DB) => DB) => void;
+  onSave: (c: Client) => Promise<void>;
   cliente: Client | undefined;
   onVolver: () => void;
 }
 
-function DetalleCliente({ upsert, cliente }: DetalleProps) {
+function DetalleCliente({ onSave, cliente }: DetalleProps) {
   const [desc, setDesc] = useState("");
   const [precio, setPrecio] = useState("");
   const [cantidad, setCantidad] = useState("1");
@@ -232,13 +510,17 @@ function DetalleCliente({ upsert, cliente }: DetalleProps) {
 
   const d = deuda(cliente);
 
+  const guardar = (mutate: (c: Client) => void) => {
+    const next = structuredClone(cliente);
+    mutate(next);
+    void onSave(next);
+  };
+
   const agregarItem = (e: FormEvent) => {
     e.preventDefault();
     const p = parseFloat(precio);
     if (!desc.trim() || isNaN(p) || p <= 0) return;
-    const cid = cliente.id;
-    upsert((db2) => {
-      const c = db2.clientes.find((x) => x.id === cid)!;
+    guardar((c) => {
       c.items.unshift({
         id: uid(),
         descripcion: desc.trim(),
@@ -246,7 +528,6 @@ function DetalleCliente({ upsert, cliente }: DetalleProps) {
         cantidad: Math.max(1, parseInt(cantidad) || 1),
         fecha: Date.now(),
       });
-      return db2;
     });
     setDesc("");
     setPrecio("");
@@ -254,11 +535,8 @@ function DetalleCliente({ upsert, cliente }: DetalleProps) {
   };
 
   const quitarItem = (itemId: string) => {
-    const cid = cliente.id;
-    upsert((db2) => {
-      const c = db2.clientes.find((x) => x.id === cid)!;
+    guardar((c) => {
       c.items = c.items.filter((it) => it.id !== itemId);
-      return db2;
     });
   };
 
@@ -266,22 +544,16 @@ function DetalleCliente({ upsert, cliente }: DetalleProps) {
     e.preventDefault();
     const m = parseFloat(montoPago);
     if (isNaN(m) || m <= 0) return;
-    const cid = cliente.id;
-    upsert((db2) => {
-      const c = db2.clientes.find((x) => x.id === cid)!;
+    guardar((c) => {
       c.pagos.unshift({ id: uid(), monto: m, fecha: Date.now() });
-      return db2;
     });
     setMontoPago("");
   };
 
   const saldar = () => {
     if (d <= 0 || !confirm(`¿Registrar pago total de ${fmtMoney(d)}?`)) return;
-    const cid = cliente.id;
-    upsert((db2) => {
-      const c = db2.clientes.find((x) => x.id === cid)!;
+    guardar((c) => {
       c.pagos.unshift({ id: uid(), monto: d, fecha: Date.now() });
-      return db2;
     });
   };
 
@@ -289,8 +561,10 @@ function DetalleCliente({ upsert, cliente }: DetalleProps) {
     <main className="wrap">
       <div className="cliente-head">
         <div>
-          <h2>{cliente.name}</h2>
-          {cliente.telephone && <span className="mut">{cliente.telephone}</span>}
+          <h2>{fullName(cliente)}</h2>
+          {cliente.telephone && (
+            <span className="mut">{cliente.telephone}</span>
+          )}
         </div>
         <div className="total-box">
           <span>Deuda actual</span>
@@ -406,6 +680,116 @@ function DetalleCliente({ upsert, cliente }: DetalleProps) {
         )}
       </form>
     </main>
+  );
+}
+
+/* ==================== Vista del cliente (solo lectura) ==================== */
+
+interface ClientProps {
+  clientUid: string;
+  onLogout: () => Promise<void>;
+}
+
+function ClientApp({ clientUid, onLogout }: ClientProps) {
+  const [cliente, setCliente] = useState<Client | null | undefined>(undefined);
+
+  useEffect(() => subscribeOwnClient(clientUid, setCliente), [clientUid]);
+
+  return (
+    <div className="page">
+      <header className="topbar">
+        <span className="logo">📒 VentaFlow</span>
+        <button className="btn btn-ghost" onClick={() => void onLogout()}>
+          Salir
+        </button>
+      </header>
+
+      {cliente === undefined ? (
+        <main className="wrap">
+          <p className="mut center">Cargando tu registro…</p>
+        </main>
+      ) : cliente === null ? (
+        <main className="wrap">
+          <p className="mut center">Tu registro no fue encontrado.</p>
+        </main>
+      ) : (
+        <main className="wrap">
+          <div className="cliente-head">
+            <div>
+              <h2>Hola, {cliente.name}</h2>
+              <span className="mut">Este es tu estado de cuenta</span>
+            </div>
+            <div className="total-box">
+              <span>Deuda actual</span>
+              <strong
+                className={deuda(cliente) > 0 ? "deuda" : "pagado"}
+              >
+                {fmtMoney(deuda(cliente))}
+              </strong>
+            </div>
+          </div>
+
+          <div className="table-card">
+            <h3>Productos fiados</h3>
+            {(cliente.items || []).length === 0 && (
+              <p className="mut">Sin productos registrados.</p>
+            )}
+            {(cliente.items || []).map((it) => (
+              <div className="item-row" key={it.id}>
+                <div>
+                  <strong>{it.descripcion}</strong>
+                  <div className="mut small">
+                    {fmtFecha(it.fecha)} ·{" "}
+                    {it.cantidad > 1
+                      ? `${it.cantidad} × ${fmtMoney(it.precio)}`
+                      : fmtMoney(it.precio)}
+                  </div>
+                </div>
+                <div className="right">
+                  <strong>
+                    {fmtMoney(it.precio * (it.cantidad || 1))}
+                  </strong>
+                </div>
+              </div>
+            ))}
+            <div className="totales">
+              <div>
+                <span>Total fiado:</span>
+                <strong>{fmtMoney(totalItems(cliente))}</strong>
+              </div>
+              <div>
+                <span>Total abonado:</span>
+                <strong className="pagado">
+                  − {fmtMoney(totalPagos(cliente))}
+                </strong>
+              </div>
+              <div className="gran-total">
+                <span>Deuda actual:</span>
+                <strong className="deuda">
+                  {fmtMoney(deuda(cliente))}
+                </strong>
+              </div>
+            </div>
+          </div>
+
+          {(cliente.pagos || []).length > 0 && (
+            <div className="table-card">
+              <h3>Mis abonos</h3>
+              <div className="pagos" style={{ marginTop: 0 }}>
+                {(cliente.pagos || []).map((p) => (
+                  <div className="pago-row" key={p.id}>
+                    <span className="mut small">{fmtFecha(p.fecha)}</span>
+                    <strong className="pagado">
+                      − {fmtMoney(p.monto)}
+                    </strong>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </main>
+      )}
+    </div>
   );
 }
 

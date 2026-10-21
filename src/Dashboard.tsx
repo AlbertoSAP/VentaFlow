@@ -5,7 +5,8 @@ import {
   totalItems,
   totalPagos,
   deuda,
-  type DB,
+  fullName,
+  type Client,
 } from "./storage.ts";
 
 interface Actividad {
@@ -17,11 +18,11 @@ interface Actividad {
   desc?: string;
 }
 
-export function metricas(db: DB) {
-  const totalPorCobrar = db.clientes.reduce((s, c) => s + deuda(c), 0);
-  const clientesConDeuda = db.clientes.filter((c) => deuda(c) > 0).length;
-  const totalAbonado = db.clientes.reduce((s, c) => s + totalPagos(c), 0);
-  const totalFiado = db.clientes.reduce((s, c) => s + totalItems(c), 0);
+export function metricas(clientes: Client[]) {
+  const totalPorCobrar = clientes.reduce((s, c) => s + deuda(c), 0);
+  const clientesConDeuda = clientes.filter((c) => deuda(c) > 0).length;
+  const totalAbonado = clientes.reduce((s, c) => s + totalPagos(c), 0);
+  const totalFiado = clientes.reduce((s, c) => s + totalItems(c), 0);
   const tasaRecuperacion =
     totalFiado > 0 ? (totalAbonado / totalFiado) * 100 : 0;
   return {
@@ -33,16 +34,16 @@ export function metricas(db: DB) {
   };
 }
 
-function actividadReciente(db: DB, limite = 8): Actividad[] {
+function actividadReciente(clientes: Client[], limite = 8): Actividad[] {
   const acts: Actividad[] = [];
-  for (const c of db.clientes) {
+  for (const c of clientes) {
     for (const p of c.pagos || [])
       acts.push({
         id: p.id,
         tipo: "pago",
         monto: p.monto,
         fecha: p.fecha,
-        cliente: c.name,
+        cliente: fullName(c),
       });
     for (const it of c.items || [])
       acts.push({
@@ -50,7 +51,7 @@ function actividadReciente(db: DB, limite = 8): Actividad[] {
         tipo: "fiado",
         monto: it.precio * (it.cantidad || 1),
         fecha: it.fecha,
-        cliente: c.name,
+        cliente: fullName(c),
         desc: it.descripcion,
       });
   }
@@ -58,20 +59,20 @@ function actividadReciente(db: DB, limite = 8): Actividad[] {
 }
 
 interface Props {
-  db: DB;
+  clientes: Client[];
 }
 
-export default function Dashboard({ db }: Props) {
-  const m = useMemo(() => metricas(db), [db]);
+export default function Dashboard({ clientes }: Props) {
+  const m = useMemo(() => metricas(clientes), [clientes]);
   const topDeudores = useMemo(
     () =>
-      [...db.clientes]
+      [...clientes]
         .filter((c) => deuda(c) > 0)
         .sort((a, b) => deuda(b) - deuda(a))
         .slice(0, 5),
-    [db],
+    [clientes],
   );
-  const acts = useMemo(() => actividadReciente(db), [db]);
+  const acts = useMemo(() => actividadReciente(clientes), [clientes]);
 
   return (
     <main className="wrap">
@@ -115,7 +116,7 @@ export default function Dashboard({ db }: Props) {
               <div className="bar-row" key={c.id}>
                 <div className="bar-meta">
                   <strong>
-                    #{i + 1} {c.name}
+                    #{i + 1} {fullName(c)}
                   </strong>
                   <span className="mut small">
                     {(c.items || []).length} productos ·{" "}
@@ -143,7 +144,7 @@ export default function Dashboard({ db }: Props) {
           <p className="mut center">Sin actividad aún.</p>
         ) : (
           acts.map((a) => (
-            <div className="item-row" key={a.id}>
+            <div className="item-row" key={`${a.tipo}-${a.id}`}>
               <div>
                 <strong>{a.cliente}</strong>
                 {a.desc && <span className="mut small"> · {a.desc}</span>}

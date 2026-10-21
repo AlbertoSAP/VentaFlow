@@ -64,3 +64,9 @@ input:focus { outline: 2px solid var(--pri); border-color: var(--pri); }
 .bar-track { background: #e2e8f0; border-radius: 6px; height: 10px; overflow: hidden; }
 .bar-fill { background: linear-gradient(90deg, var(--pri), #60a5fa); height: 100%; border-radius: 6px; transition: width .4s ease; }
 .bar-val { font-size: .95rem; }
+.stack { display: flex; flex-direction: column; gap: 10px; }
+.seg { display: flex; gap: 6px; margin-bottom: 14px; }
+.seg-btn { flex: 1; background: var(--bg); border: 1px solid var(--line); color: var(--mut); font-size: .9rem; font-weight: 600; padding: 9px 10px; border-radius: 10px; cursor: pointer; }
+.seg-btn.active { background: var(--pri); border-color: var(--pri); color: #fff; }
+.error { background: #fef2f2; color: var(--deuda); border: 1px solid #fecaca; border-radius: 10px; padding: 10px 12px; font-size: .9rem; }
+.success-card { background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 10px; padding: 12px 14px; display: flex; flex-direction: column; gap: 4px; font-size: .92rem; }
