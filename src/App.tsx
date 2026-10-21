@@ -90,6 +90,7 @@ function AuthScreen({ onLoginVendor, onLoginClient, onRegisterVendor }: AuthProp
   const [email, setEmail] = useState("");
   const [telephone, setTelephone] = useState("");
   const [password, setPassword] = useState("");
+  const [showPw, setShowPw] = useState(false);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
 
@@ -119,6 +120,15 @@ function AuthScreen({ onLoginVendor, onLoginClient, onRegisterVendor }: AuthProp
       </header>
 
       <main className="wrap" style={{ maxWidth: 480 }}>
+        <div className="center" style={{ padding: "4px 0 0" }}>
+          <h2>Lleva tus fiados sin papel 📒</h2>
+          <p className="mut" style={{ marginTop: 6 }}>
+            Apunta quién te debe, cuánto te debe y qué ya te pagó. Tu
+            cliente puede ver su cuenta entrando con su número de
+            teléfono.
+          </p>
+        </div>
+
         <div className="form-card">
           <div className="seg">
             <button
@@ -142,21 +152,33 @@ function AuthScreen({ onLoginVendor, onLoginClient, onRegisterVendor }: AuthProp
               <>
                 <input
                   placeholder="Tu nombre *"
+                  autoComplete="name"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                 />
                 <input
                   type="email"
                   placeholder="Tu correo *"
+                  autoComplete="email"
+                  inputMode="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                 />
                 <input
-                  type="password"
+                  type={showPw ? "text" : "password"}
                   placeholder="Contraseña (mín. 6 caracteres) *"
+                  autoComplete="new-password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                 />
+                <button
+                  type="button"
+                  className="link"
+                  style={{ alignSelf: "flex-end" }}
+                  onClick={() => setShowPw(!showPw)}
+                >
+                  {showPw ? "Ocultar contraseña" : "Mostrar contraseña"}
+                </button>
                 <p className="mut small">
                   El registro es solo para vendedores. Las cuentas de
                   cliente las crea su vendedor desde la app.
@@ -187,6 +209,8 @@ function AuthScreen({ onLoginVendor, onLoginClient, onRegisterVendor }: AuthProp
                   <input
                     type="email"
                     placeholder="Tu correo *"
+                    autoComplete="email"
+                    inputMode="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                   />
@@ -194,6 +218,8 @@ function AuthScreen({ onLoginVendor, onLoginClient, onRegisterVendor }: AuthProp
                   <>
                     <input
                       placeholder="Tu número de teléfono *"
+                      inputMode="tel"
+                      autoComplete="tel"
                       value={telephone}
                       onChange={(e) => setTelephone(e.target.value)}
                     />
@@ -204,11 +230,20 @@ function AuthScreen({ onLoginVendor, onLoginClient, onRegisterVendor }: AuthProp
                   </>
                 )}
                 <input
-                  type="password"
+                  type={showPw ? "text" : "password"}
                   placeholder="Contraseña *"
+                  autoComplete="current-password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                 />
+                <button
+                  type="button"
+                  className="link"
+                  style={{ alignSelf: "flex-end" }}
+                  onClick={() => setShowPw(!showPw)}
+                >
+                  {showPw ? "Ocultar contraseña" : "Mostrar contraseña"}
+                </button>
               </>
             )}
 
@@ -357,6 +392,13 @@ function ListaClientes({
   const [creado, setCreado] = useState<CreadoInfo | null>(null);
   const [clienteAEliminar, setClienteAEliminar] = useState<Client | null>(null);
   const [avisoEliminar, setAvisoEliminar] = useState<Client | null>(null);
+  const [aviso, setAviso] = useState("");
+
+  useEffect(() => {
+    if (!aviso) return;
+    const t = setTimeout(() => setAviso(""), 4000);
+    return () => clearTimeout(t);
+  }, [aviso]);
 
   const agregar = async (e: FormEvent) => {
     e.preventDefault();
@@ -394,6 +436,7 @@ function ListaClientes({
     setClienteAEliminar(null);
     const msg = await deleteClient(target.id, fullName(target));
     if (msg) alert(msg);
+    else setAviso(`Cliente eliminado: ${fullName(target)}.`);
   };
 
   return (
@@ -408,6 +451,12 @@ function ListaClientes({
           <strong>{allClients.filter((c) => deuda(c) > 0).length}</strong>
         </div>
       </div>
+
+      {aviso && (
+        <div className="aviso-ok" role="status">
+          {aviso}
+        </div>
+      )}
 
       <form className="form-card" onSubmit={agregar}>
         <h3>Agregar cliente</h3>
@@ -427,6 +476,8 @@ function ListaClientes({
           <div className="row">
             <input
               placeholder="Teléfono (será su usuario para entrar) *"
+              inputMode="tel"
+              autoComplete="tel"
               value={telephone}
               onChange={(e) => setTelephone(e.target.value)}
             />
@@ -497,7 +548,9 @@ function ListaClientes({
         })}
         {clientes.length === 0 && (
           <p className="mut center">
-            No hay clientes. Agrega el primero arriba.
+            {allClients.length === 0
+              ? "Todavía no tienes clientes. Agrega el primero con el formulario de arriba: solo necesitas su nombre y su número de teléfono."
+              : "Ningún cliente coincide con tu búsqueda. Prueba con otro nombre."}
           </p>
         )}
       </div>
@@ -550,9 +603,26 @@ export function ConfirmModal({
   onConfirm,
   onCancel,
 }: ConfirmModalProps) {
+  // Escape cierra el modal, como espera cualquier usuario.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      if (cancelLabel === null) onConfirm();
+      else onCancel();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [cancelLabel, onConfirm, onCancel]);
+
   return (
     <div className="modal-overlay" onClick={onCancel}>
-      <div className="modal-card" onClick={(e) => e.stopPropagation()}>
+      <div
+        className="modal-card"
+        role="dialog"
+        aria-modal="true"
+        aria-label={title}
+        onClick={(e) => e.stopPropagation()}
+      >
         <h3>{title}</h3>
         <p className="mut">{message}</p>
         <div className="modal-actions">
@@ -587,6 +657,14 @@ function DetalleCliente({ onSave, cliente }: DetalleProps) {
   const [montoPago, setMontoPago] = useState("");
   const [itemAQuitar, setItemAQuitar] = useState<FiadoItem | null>(null);
   const [confirmarSaldar, setConfirmarSaldar] = useState(false);
+  const [aviso, setAviso] = useState("");
+
+  // El aviso de "guardado" se quita solo a los pocos segundos.
+  useEffect(() => {
+    if (!aviso) return;
+    const t = setTimeout(() => setAviso(""), 4000);
+    return () => clearTimeout(t);
+  }, [aviso]);
 
   if (!cliente)
     return (
@@ -627,6 +705,7 @@ function DetalleCliente({ onSave, cliente }: DetalleProps) {
     setDesc("");
     setPrecio("");
     setCantidad("1");
+    setAviso(`✅ Fiado agregado a la cuenta de ${fullName(cliente)}.`);
   };
 
   // Quitar un producto exige confirmación en el modal: un clic
@@ -637,6 +716,7 @@ function DetalleCliente({ onSave, cliente }: DetalleProps) {
     guardar((c) => {
       c.items = c.items.filter((it) => it.id !== itemId);
     });
+    setAviso(`Producto "${itemAQuitar.descripcion}" quitado de la cuenta.`);
     setItemAQuitar(null);
   };
 
@@ -648,6 +728,7 @@ function DetalleCliente({ onSave, cliente }: DetalleProps) {
       c.pagos.unshift({ id: uid(), monto: m, fecha: Date.now() });
     });
     setMontoPago("");
+    setAviso(`✅ Abono de ${fmtMoney(m)} registrado.`);
   };
 
   // Saldar también pasa por el modal: registra un abono por el total.
@@ -656,10 +737,16 @@ function DetalleCliente({ onSave, cliente }: DetalleProps) {
       c.pagos.unshift({ id: uid(), monto: d, fecha: Date.now() });
     });
     setConfirmarSaldar(false);
+    setAviso("✅ Deuda saldada por completo. 🎉");
   };
 
   return (
     <main className="wrap">
+      {aviso && (
+        <div className="aviso-ok" role="status">
+          {aviso}
+        </div>
+      )}
       <div className="cliente-head">
         <div>
           <h2>{fullName(cliente)}</h2>
@@ -709,7 +796,10 @@ function DetalleCliente({ onSave, cliente }: DetalleProps) {
       <div className="table-card">
         <h3>Productos fiados</h3>
         {(cliente.items || []).length === 0 && (
-          <p className="mut">Sin productos registrados.</p>
+          <p className="mut">
+            Este cliente aún no tiene productos fiados. Agrega el primero
+            con el formulario «Agregar fiado» de arriba.
+          </p>
         )}
         {(cliente.items || []).map((it) => (
           <div className="item-row" key={it.id}>
@@ -783,6 +873,19 @@ function DetalleCliente({ onSave, cliente }: DetalleProps) {
               Saldar todo
             </button>
           )}
+        </div>
+        <div className="chips">
+          <span className="mut small">Montos rápidos:</span>
+          {[50, 100, 200, 500].map((v) => (
+            <button
+              key={v}
+              type="button"
+              className="chip"
+              onClick={() => setMontoPago(String(v))}
+            >
+              C$ {v}
+            </button>
+          ))}
         </div>
         {(cliente.pagos || []).length > 0 && (
           <div className="pagos">

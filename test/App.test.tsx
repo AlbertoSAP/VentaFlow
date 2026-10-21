@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import App, { ConfirmModal } from "../src/App.tsx";
 import { useAuth } from "../src/hooks/useAuth.ts";
@@ -374,6 +374,118 @@ describe("vista del cliente (solo lectura)", () => {
     expect(await screen.findByText(/Hola, Luis/)).toBeInTheDocument();
     expect(screen.getByText("Saldo a favor:")).toBeInTheDocument();
     expect(screen.getByText("+ C$ 30.00")).toBeInTheDocument();
+  });
+});
+
+describe("usabilidad", () => {
+  it("el botón Mostrar contraseña revela y oculta la clave", async () => {
+    const user = userEvent.setup();
+    setAuth({});
+    render(<App />);
+
+    const input = screen.getByPlaceholderText(
+      "Contraseña *",
+    ) as HTMLInputElement;
+    expect(input.type).toBe("password");
+    await user.click(
+      screen.getByRole("button", { name: "Mostrar contraseña" }),
+    );
+    expect(input.type).toBe("text");
+    await user.click(screen.getByRole("button", { name: "Ocultar contraseña" }));
+    expect(input.type).toBe("password");
+  });
+
+  it("la pantalla de acceso explica para qué sirve la app", () => {
+    setAuth({});
+    render(<App />);
+    expect(screen.getByText(/Lleva tus fiados sin papel/)).toBeInTheDocument();
+  });
+
+  it("sin clientes, la lista explica cómo agregar el primero", async () => {
+    const user = userEvent.setup();
+    setAuth(VENDOR);
+    setClientsHook({ clients: [] });
+    render(<App />);
+
+    await user.click(screen.getByRole("button", { name: /Clientes/ }));
+    expect(
+      screen.getByText(/Todavía no tienes clientes\. Agrega el primero/),
+    ).toBeInTheDocument();
+  });
+
+  it("una búsqueda sin resultados lo dice claramente", async () => {
+    const user = userEvent.setup();
+    setAuth(VENDOR);
+    setClientsHook({ clients: [makeClient({ id: "a1" })] });
+    render(<App />);
+
+    await user.click(screen.getByRole("button", { name: /Clientes/ }));
+    await user.type(screen.getByPlaceholderText(/Buscar cliente/), "zzz");
+    expect(
+      screen.getByText(/Ningún cliente coincide con tu búsqueda/),
+    ).toBeInTheDocument();
+  });
+
+  it("agregar un fiado muestra el aviso de guardado", async () => {
+    const user = userEvent.setup();
+    setAuth(VENDOR);
+    setClientsHook({ clients: [makeClient({ id: "a1" })] });
+    render(<App />);
+
+    await user.click(screen.getByRole("button", { name: /Clientes/ }));
+    await user.click(screen.getByText("Ana López"));
+    await user.type(
+      screen.getByPlaceholderText(/Descripción \(ej: 2 libras de arroz\)/),
+      "Pan dulce",
+    );
+    await user.type(screen.getByPlaceholderText("Precio *"), "50");
+    await user.click(screen.getByRole("button", { name: "Añadir" }));
+
+    expect(
+      await screen.findByText(/Fiado agregado a la cuenta de Ana López/),
+    ).toBeInTheDocument();
+  });
+
+  it("los chips de montos rápidos llenan el abono y lo registran", async () => {
+    const user = userEvent.setup();
+    const saveClient = jest.fn(async () => {});
+    setAuth(VENDOR);
+    setClientsHook({ clients: [makeClient({ id: "a1" })], saveClient });
+    render(<App />);
+
+    await user.click(screen.getByRole("button", { name: /Clientes/ }));
+    await user.click(screen.getByText("Ana López"));
+    await user.click(screen.getByRole("button", { name: "C$ 100" }));
+
+    const monto = screen.getByPlaceholderText(
+      "Monto del abono",
+    ) as HTMLInputElement;
+    expect(monto.value).toBe("100");
+
+    await user.click(screen.getByRole("button", { name: "Abonar" }));
+    expect(saveClient).toHaveBeenCalledTimes(1);
+    const guardado = (saveClient.mock.calls[0] as any[])[0];
+    expect(guardado.pagos[0].monto).toBe(100);
+    expect(
+      await screen.findByText(/Abono de C\$ 100\.00 registrado/),
+    ).toBeInTheDocument();
+  });
+
+  it("Escape cierra el modal de confirmación sin ejecutar la acción", async () => {
+    const user = userEvent.setup();
+    const saveClient = jest.fn(async () => {});
+    setAuth(VENDOR);
+    setClientsHook({ clients: [makeClient({ id: "a1" })], saveClient });
+    render(<App />);
+
+    await user.click(screen.getByRole("button", { name: /Clientes/ }));
+    await user.click(screen.getByText("Ana López"));
+    await user.click(screen.getByRole("button", { name: "quitar" }));
+    expect(screen.getByText("¿Quitar este producto?")).toBeInTheDocument();
+
+    fireEvent.keyDown(window, { key: "Escape" });
+    expect(screen.queryByText("¿Quitar este producto?")).not.toBeInTheDocument();
+    expect(saveClient).not.toHaveBeenCalled();
   });
 });
 

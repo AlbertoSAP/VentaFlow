@@ -76,3 +76,12 @@ input:focus { outline: 2px solid var(--pri); border-color: var(--pri); }
 .modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 4px; }
 .btn-danger { background: var(--deuda); color: #fff; }
 .btn-cancel { background: transparent; color: var(--txt); border: 1px solid var(--line); }
+
+/* Usabilidad: objetivos táctiles amplios y avisos claros */
+.btn { min-height: 44px; }
+.nav-btn { padding: 10px 16px; }
+.link { padding: 10px 8px; margin: -4px 0; }
+.aviso-ok { background: #f0fdf4; border: 1px solid #bbf7d0; color: #166534; border-radius: 10px; padding: 12px 14px; font-weight: 600; font-size: .95rem; }
+.chips { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-top: 12px; }
+.chip { background: var(--bg); border: 1px solid var(--line); border-radius: 999px; padding: 9px 16px; font-weight: 700; cursor: pointer; font-size: .9rem; min-height: 40px; }
+.chip:hover { border-color: var(--pri); color: var(--pri); }

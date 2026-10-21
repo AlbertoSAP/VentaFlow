@@ -76,6 +76,17 @@ export default function Dashboard({ clientes }: Props) {
 
   return (
     <main className="wrap">
+      {clientes.length === 0 && (
+        <div className="card">
+          <h3>👋 ¡Bienvenido a VentaFlow!</h3>
+          <p className="mut">
+            Todavía no tienes clientes registrados. Toca la pestaña{" "}
+            <strong>Clientes</strong>, agrega el primero con su nombre y
+            su número de teléfono, y después podrás registrarle productos
+            fiados y abonos. Aquí verás cuánto te deben en total.
+          </p>
+        </div>
+      )}
       <div
         className="resumen"
         style={{ gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))" }}

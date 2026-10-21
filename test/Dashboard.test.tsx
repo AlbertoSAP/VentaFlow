@@ -48,4 +48,10 @@ describe("Dashboard (componente)", () => {
     expect(screen.getByText("Sin actividad aún.")).toBeInTheDocument();
     expect(makeClientSinRegistros().items).toHaveLength(0);
   });
+
+  it("sin clientes guía al usuario con la tarjeta de bienvenida", () => {
+    render(<Dashboard clientes={[]} />);
+    expect(screen.getByText(/Bienvenido a VentaFlow/)).toBeInTheDocument();
+    expect(screen.getByText(/pestaña/)).toBeInTheDocument();
+  });
 });
