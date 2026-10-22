@@ -1,5 +1,11 @@
 import { useMemo } from "react";
 import {
+  CircleDollarSign,
+  Percent,
+  Users,
+  Wallet,
+} from "lucide-react";
+import {
   fmtMoney,
   fmtFecha,
   totalItems,
@@ -8,6 +14,8 @@ import {
   fullName,
   type Client,
 } from "./storage.ts";
+import { Card } from "@/components/ui/card";
+import { cn } from "@/lib/utils";
 
 interface Actividad {
   id: string;
@@ -62,6 +70,33 @@ interface Props {
   clientes: Client[];
 }
 
+function MetricCard({
+  icon,
+  iconCls,
+  label,
+  children,
+}: {
+  icon: React.ReactNode;
+  iconCls: string;
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <Card className="gap-1 p-5">
+      <span
+        className={cn(
+          "mb-2 grid size-9 place-items-center rounded-lg [&_svg]:size-4.5",
+          iconCls,
+        )}
+      >
+        {icon}
+      </span>
+      <span className="text-sm text-muted-foreground">{label}</span>
+      <strong className="text-2xl font-bold tabular-nums">{children}</strong>
+    </Card>
+  );
+}
+
 export default function Dashboard({ clientes }: Props) {
   const m = useMemo(() => metricas(clientes), [clientes]);
   const topDeudores = useMemo(
@@ -75,102 +110,138 @@ export default function Dashboard({ clientes }: Props) {
   const acts = useMemo(() => actividadReciente(clientes), [clientes]);
 
   return (
-    <main className="wrap">
+    <main className="mx-auto flex w-full max-w-5xl flex-col gap-5 px-4 pt-6 pb-16">
       {clientes.length === 0 && (
-        <div className="card">
-          <h3>👋 ¡Bienvenido a VentaFlow!</h3>
-          <p className="mut">
+        <Card className="gap-2 p-6">
+          <h3 className="text-base font-semibold tracking-tight">
+            👋 ¡Bienvenido a VentaFlow!
+          </h3>
+          <p className="text-sm leading-relaxed text-muted-foreground">
             Todavía no tienes clientes registrados. Toca la pestaña{" "}
             <strong>Clientes</strong>, agrega el primero con su nombre y
             su número de teléfono, y después podrás registrarle productos
             fiados y abonos. Aquí verás cuánto te deben en total.
           </p>
-        </div>
+        </Card>
       )}
-      <div
-        className="resumen"
-        style={{ gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))" }}
-      >
-        <div className="metric">
-          <span>Total por cobrar</span>
-          <strong className="deuda">{fmtMoney(m.totalPorCobrar)}</strong>
-        </div>
-        <div className="metric">
-          <span> Clientes con deuda</span>
-          <strong>{m.clientesConDeuda}</strong>
-        </div>
-        <div className="metric">
-          <span>Total abonado</span>
-          <strong className="pagado">− {fmtMoney(m.totalAbonado)}</strong>
-        </div>
-        <div className="metric">
-          <span>% recuperado</span>
-          <strong
-            style={{
-              color: m.tasaRecuperacion >= 50 ? "var(--ok)" : "var(--deuda)",
-            }}
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+        <MetricCard
+          icon={<Wallet />}
+          iconCls="bg-red-50 text-red-600"
+          label="Total por cobrar"
+        >
+          <span className="text-red-600">{fmtMoney(m.totalPorCobrar)}</span>
+        </MetricCard>
+        <MetricCard
+          icon={<Users />}
+          iconCls="bg-amber-50 text-amber-600"
+          label="Clientes con deuda"
+        >
+          {m.clientesConDeuda}
+        </MetricCard>
+        <MetricCard
+          icon={<CircleDollarSign />}
+          iconCls="bg-emerald-50 text-emerald-600"
+          label="Total abonado"
+        >
+          <span className="text-emerald-600">
+            − {fmtMoney(m.totalAbonado)}
+          </span>
+        </MetricCard>
+        <MetricCard
+          icon={<Percent />}
+          iconCls="bg-blue-50 text-primary"
+          label="% recuperado"
+        >
+          <span
+            className={
+              m.tasaRecuperacion >= 50 ? "text-emerald-600" : "text-red-600"
+            }
           >
             {m.tasaRecuperacion.toFixed(0)}%
-          </strong>
-        </div>
+          </span>
+        </MetricCard>
       </div>
 
-      <div className="card">
-        <h3>Top 5 clientes deudores</h3>
+      <Card className="gap-1 p-6">
+        <h3 className="mb-2 text-base font-semibold tracking-tight">
+          Top 5 clientes deudores
+        </h3>
         {topDeudores.length === 0 ? (
-          <p className="mut center">¡Sin deudas! Todos están al corriente.</p>
+          <p className="py-6 text-center text-sm text-muted-foreground">
+            ¡Sin deudas! Todos están al corriente.
+          </p>
         ) : (
           topDeudores.map((c, i) => {
             const d = deuda(c);
             const max = deuda(topDeudores[0]) || 1;
             return (
-              <div className="bar-row" key={c.id}>
-                <div className="bar-meta">
-                  <strong>
-                    #{i + 1} {fullName(c)}
+              <div className="flex flex-col gap-1.5 py-2.5" key={c.id}>
+                <div className="flex items-baseline justify-between gap-4">
+                  <div className="flex min-w-0 flex-col">
+                    <strong className="truncate text-sm">
+                      #{i + 1} {fullName(c)}
+                    </strong>
+                    <span className="text-xs text-muted-foreground">
+                      {(c.items || []).length} productos ·{" "}
+                      {fmtMoney(totalPagos(c))} abonados
+                    </span>
+                  </div>
+                  <strong className="shrink-0 tabular-nums text-red-600">
+                    {fmtMoney(d)}
                   </strong>
-                  <span className="mut small">
-                    {(c.items || []).length} productos ·{" "}
-                    {fmtMoney(totalPagos(c))} abonados
-                  </span>
                 </div>
-                <div className="bar-track">
+                <div className="h-2.5 overflow-hidden rounded-full bg-slate-200">
                   <div
-                    className="bar-fill"
+                    className="h-full rounded-full bg-gradient-to-r from-blue-600 to-blue-400 transition-all duration-500"
                     style={{ width: `${(d / max) * 100}%` }}
                   />
-                </div>
-                <div className="bar-val">
-                  <strong className="deuda">{fmtMoney(d)}</strong>
                 </div>
               </div>
             );
           })
         )}
-      </div>
+      </Card>
 
-      <div className="card">
-        <h3>Actividad reciente</h3>
+      <Card className="gap-1 p-6">
+        <h3 className="mb-1 text-base font-semibold tracking-tight">
+          Actividad reciente
+        </h3>
         {acts.length === 0 ? (
-          <p className="mut center">Sin actividad aún.</p>
+          <p className="py-6 text-center text-sm text-muted-foreground">
+            Sin actividad aún.
+          </p>
         ) : (
           acts.map((a) => (
-            <div className="item-row" key={`${a.tipo}-${a.id}`}>
-              <div>
+            <div
+              className="flex items-center justify-between gap-3 border-b border-slate-100 py-3 last:border-0"
+              key={`${a.tipo}-${a.id}`}
+            >
+              <div className="min-w-0">
                 <strong>{a.cliente}</strong>
-                {a.desc && <span className="mut small"> · {a.desc}</span>}
-                <div className="mut small">{fmtFecha(a.fecha)}</div>
+                {a.desc && (
+                  <span className="text-sm text-muted-foreground">
+                    {" "}
+                    · {a.desc}
+                  </span>
+                )}
+                <div className="text-xs text-muted-foreground">
+                  {fmtFecha(a.fecha)}
+                </div>
               </div>
-              <div className="right">
-                <strong className={a.tipo === "pago" ? "pagado" : "deuda"}>
-                  {a.tipo === "pago" ? "−" : "+"}
-                  {fmtMoney(a.monto)}
-                </strong>
-              </div>
+              <strong
+                className={cn(
+                  "shrink-0 tabular-nums",
+                  a.tipo === "pago" ? "text-emerald-600" : "text-red-600",
+                )}
+              >
+                {a.tipo === "pago" ? "−" : "+"}
+                {fmtMoney(a.monto)}
+              </strong>
             </div>
           ))
         )}
-      </div>
+      </Card>
     </main>
   );
 }

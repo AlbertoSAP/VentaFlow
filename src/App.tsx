@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
+import { Search } from "lucide-react";
 import {
   uid,
   fmtMoney,
@@ -15,6 +16,175 @@ import {
 import { useAuth, mapAuthError } from "./hooks/useAuth.ts";
 import { useClient } from "./hooks/useClient.tsx";
 import Dashboard, { metricas } from "./Dashboard.tsx";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
+
+/* ===== Piezas visuales compartidas (Tailwind + shadcn/ui) ===== */
+
+const deudaCls = "text-red-600";
+const pagadoCls = "text-emerald-600";
+const moneyCls = "tabular-nums";
+
+function Logo() {
+  return (
+    <span className="flex items-center gap-2.5">
+      <span className="grid size-9 place-items-center rounded-lg bg-gradient-to-br from-blue-600 to-blue-400 text-sm font-extrabold tracking-tight text-white shadow-sm">
+        VF
+      </span>
+      <span className="text-lg font-bold tracking-tight text-slate-900">
+        Venta<span className="text-primary">Flow</span>
+      </span>
+    </span>
+  );
+}
+
+function Topbar({ children }: { children?: ReactNode }) {
+  return (
+    <header className="sticky top-0 z-40 border-b border-slate-200/80 bg-white/85 backdrop-blur">
+      <div className="mx-auto flex h-16 w-full max-w-5xl items-center justify-between gap-3 px-4">
+        <Logo />
+        {children}
+      </div>
+    </header>
+  );
+}
+
+function Wrap({
+  children,
+  wide = false,
+  narrow = false,
+}: {
+  children: ReactNode;
+  wide?: boolean;
+  narrow?: boolean;
+}) {
+  return (
+    <main
+      className={cn(
+        "mx-auto flex w-full flex-col gap-5 px-4 pb-16 pt-6",
+        wide ? "max-w-5xl" : narrow ? "max-w-md" : "max-w-3xl",
+      )}
+    >
+      {children}
+    </main>
+  );
+}
+
+function Seg({ children }: { children: ReactNode }) {
+  return (
+    <div className="flex gap-1 rounded-xl bg-slate-100 p-1">{children}</div>
+  );
+}
+
+function segBtnCls(active: boolean) {
+  return cn(
+    "flex-1 rounded-lg px-3 py-2 text-sm font-semibold transition",
+    active
+      ? "bg-white text-slate-900 shadow-sm"
+      : "text-slate-500 hover:text-slate-800",
+  );
+}
+
+function AvisoOk({ children }: { children: ReactNode }) {
+  return (
+    <div
+      role="status"
+      className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 font-medium text-emerald-800"
+    >
+      {children}
+    </div>
+  );
+}
+
+function ErrorMsg({ children }: { children: ReactNode }) {
+  return (
+    <p className="rounded-lg border border-red-200 bg-red-50 px-3.5 py-2.5 text-sm font-medium text-red-700">
+      {children}
+    </p>
+  );
+}
+
+function ShowPwButton({
+  show,
+  onToggle,
+}: {
+  show: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <Button
+      type="button"
+      variant="link"
+      size="sm"
+      className="h-auto self-end px-0 py-0.5"
+      onClick={onToggle}
+    >
+      {show ? "Ocultar contraseña" : "Mostrar contraseña"}
+    </Button>
+  );
+}
+
+function TotalBox({ monto }: { monto: number }) {
+  return (
+    <Card className="flex flex-col gap-0.5 px-5 py-3.5 text-right shadow-sm">
+      <span className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+        Deuda actual
+      </span>
+      <strong
+        className={cn(
+          "text-2xl font-bold",
+          moneyCls,
+          monto > 0 ? deudaCls : pagadoCls,
+        )}
+      >
+        {fmtMoney(monto)}
+      </strong>
+    </Card>
+  );
+}
+
+function Totales({ cliente }: { cliente: Client }) {
+  const d = deuda(cliente);
+  const sf = saldoAFavor(cliente);
+  return (
+    <div className="mt-4 flex flex-col gap-2 border-t border-slate-100 pt-4 text-sm">
+      <div className="flex items-center justify-between">
+        <span className="text-muted-foreground">Total fiado:</span>
+        <strong className={moneyCls}>{fmtMoney(totalItems(cliente))}</strong>
+      </div>
+      <div className="flex items-center justify-between">
+        <span className="text-muted-foreground">Total abonado:</span>
+        <strong className={cn(moneyCls, pagadoCls)}>
+          − {fmtMoney(totalPagos(cliente))}
+        </strong>
+      </div>
+      {sf > 0 && (
+        <div className="flex items-center justify-between">
+          <span className="text-muted-foreground">Saldo a favor:</span>
+          <strong className={cn(moneyCls, pagadoCls)}>
+            + {fmtMoney(sf)}
+          </strong>
+        </div>
+      )}
+      <div className="mt-1 flex items-center justify-between border-t-2 border-slate-200 pt-3 text-lg font-bold">
+        <span>Deuda actual:</span>
+        <strong className={cn(moneyCls, deudaCls)}>{fmtMoney(d)}</strong>
+      </div>
+    </div>
+  );
+}
+
+function iniciales(nombre: string) {
+  return nombre
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((p) => p[0]!.toUpperCase())
+    .join("");
+}
 
 function App() {
   const { user, role, resolving, registerVendor, loginVendor, loginClient, logout } =
@@ -22,13 +192,13 @@ function App() {
 
   if (resolving) {
     return (
-      <div className="page">
-        <header className="topbar">
-          <span className="logo">📒 VentaFlow</span>
-        </header>
-        <main className="wrap">
-          <p className="mut center">Conectando…</p>
-        </main>
+      <div className="min-h-screen">
+        <Topbar />
+        <Wrap>
+          <p className="py-16 text-center text-muted-foreground">
+            Conectando…
+          </p>
+        </Wrap>
       </div>
     );
   }
@@ -54,19 +224,18 @@ function App() {
   // Hay sesión pero ningún registro asociado (ej: la cuenta quedó
   // huérfana porque su registro fue eliminado por el vendedor).
   return (
-    <div className="page">
-      <header className="topbar">
-        <span className="logo">📒 VentaFlow</span>
-        <button className="btn btn-ghost" onClick={() => void logout()}>
+    <div className="min-h-screen">
+      <Topbar>
+        <Button variant="outline" size="sm" onClick={() => void logout()}>
           Salir
-        </button>
-      </header>
-      <main className="wrap">
-        <p className="mut center">
+        </Button>
+      </Topbar>
+      <Wrap>
+        <p className="py-16 text-center text-muted-foreground">
           Esta cuenta no tiene un registro activo en VentaFlow. Si eras
           cliente, pide a tu vendedor que te registre de nuevo.
         </p>
-      </main>
+      </Wrap>
     </div>
   );
 }
@@ -114,49 +283,49 @@ function AuthScreen({ onLoginVendor, onLoginClient, onRegisterVendor }: AuthProp
   };
 
   return (
-    <div className="page">
-      <header className="topbar">
-        <span className="logo">📒 VentaFlow</span>
-      </header>
+    <div className="min-h-screen">
+      <Topbar />
 
-      <main className="wrap" style={{ maxWidth: 480 }}>
-        <div className="center" style={{ padding: "4px 0 0" }}>
-          <h2>Lleva tus fiados sin papel 📒</h2>
-          <p className="mut" style={{ marginTop: 6 }}>
+      <Wrap narrow>
+        <div className="pt-2 text-center">
+          <h2 className="text-2xl font-bold tracking-tight">
+            Lleva tus fiados sin papel 📒
+          </h2>
+          <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
             Apunta quién te debe, cuánto te debe y qué ya te pagó. Tu
             cliente puede ver su cuenta entrando con su número de
             teléfono.
           </p>
         </div>
 
-        <div className="form-card">
-          <div className="seg">
+        <Card className="gap-5 p-6">
+          <Seg>
             <button
               type="button"
-              className={`seg-btn${mode === "login" ? " active" : ""}`}
+              className={segBtnCls(mode === "login")}
               onClick={() => setMode("login")}
             >
               Iniciar sesión
             </button>
             <button
               type="button"
-              className={`seg-btn${mode === "register" ? " active" : ""}`}
+              className={segBtnCls(mode === "register")}
               onClick={() => setMode("register")}
             >
               Crear cuenta de vendedor
             </button>
-          </div>
+          </Seg>
 
-          <form className="stack" onSubmit={submit}>
+          <form className="flex flex-col gap-4" onSubmit={submit}>
             {mode === "register" && (
               <>
-                <input
+                <Input
                   placeholder="Tu nombre *"
                   autoComplete="name"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                 />
-                <input
+                <Input
                   type="email"
                   placeholder="Tu correo *"
                   autoComplete="email"
@@ -164,22 +333,15 @@ function AuthScreen({ onLoginVendor, onLoginClient, onRegisterVendor }: AuthProp
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                 />
-                <input
+                <Input
                   type={showPw ? "text" : "password"}
                   placeholder="Contraseña (mín. 6 caracteres) *"
                   autoComplete="new-password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                 />
-                <button
-                  type="button"
-                  className="link"
-                  style={{ alignSelf: "flex-end" }}
-                  onClick={() => setShowPw(!showPw)}
-                >
-                  {showPw ? "Ocultar contraseña" : "Mostrar contraseña"}
-                </button>
-                <p className="mut small">
+                <ShowPwButton show={showPw} onToggle={() => setShowPw(!showPw)} />
+                <p className="text-xs leading-relaxed text-muted-foreground">
                   El registro es solo para vendedores. Las cuentas de
                   cliente las crea su vendedor desde la app.
                 </p>
@@ -188,25 +350,25 @@ function AuthScreen({ onLoginVendor, onLoginClient, onRegisterVendor }: AuthProp
 
             {mode === "login" && (
               <>
-                <div className="seg">
+                <Seg>
                   <button
                     type="button"
-                    className={`seg-btn${loginAs === "vendedor" ? " active" : ""}`}
+                    className={segBtnCls(loginAs === "vendedor")}
                     onClick={() => setLoginAs("vendedor")}
                   >
                     Soy vendedor
                   </button>
                   <button
                     type="button"
-                    className={`seg-btn${loginAs === "cliente" ? " active" : ""}`}
+                    className={segBtnCls(loginAs === "cliente")}
                     onClick={() => setLoginAs("cliente")}
                   >
                     Soy cliente
                   </button>
-                </div>
+                </Seg>
 
                 {loginAs === "vendedor" ? (
-                  <input
+                  <Input
                     type="email"
                     placeholder="Tu correo *"
                     autoComplete="email"
@@ -216,49 +378,42 @@ function AuthScreen({ onLoginVendor, onLoginClient, onRegisterVendor }: AuthProp
                   />
                 ) : (
                   <>
-                    <input
+                    <Input
                       placeholder="Tu número de teléfono *"
                       inputMode="tel"
                       autoComplete="tel"
                       value={telephone}
                       onChange={(e) => setTelephone(e.target.value)}
                     />
-                    <p className="mut small">
+                    <p className="text-xs leading-relaxed text-muted-foreground">
                       Entrás con el teléfono que te registró tu vendedor y
                       la contraseña que te entregó.
                     </p>
                   </>
                 )}
-                <input
+                <Input
                   type={showPw ? "text" : "password"}
                   placeholder="Contraseña *"
                   autoComplete="current-password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                 />
-                <button
-                  type="button"
-                  className="link"
-                  style={{ alignSelf: "flex-end" }}
-                  onClick={() => setShowPw(!showPw)}
-                >
-                  {showPw ? "Ocultar contraseña" : "Mostrar contraseña"}
-                </button>
+                <ShowPwButton show={showPw} onToggle={() => setShowPw(!showPw)} />
               </>
             )}
 
-            {error && <p className="error">{error}</p>}
+            {error && <ErrorMsg>{error}</ErrorMsg>}
 
-            <button className="btn btn-primary" type="submit" disabled={busy}>
+            <Button className="w-full" type="submit" disabled={busy}>
               {busy
                 ? "Espera…"
                 : mode === "register"
                   ? "Crear mi cuenta"
                   : "Entrar"}
-            </button>
+            </Button>
           </form>
-        </div>
-      </main>
+        </Card>
+      </Wrap>
     </div>
   );
 }
@@ -271,6 +426,15 @@ type Vista =
 interface VendorProps {
   vendorUid: string;
   onLogout: () => Promise<void>;
+}
+
+function navBtnCls(active: boolean) {
+  return cn(
+    "rounded-lg px-3.5 py-2 text-sm font-semibold transition",
+    active
+      ? "bg-slate-900 text-white shadow-sm"
+      : "text-slate-500 hover:bg-slate-100 hover:text-slate-900",
+  );
 }
 
 function VendorApp({ vendorUid, onLogout }: VendorProps) {
@@ -290,14 +454,12 @@ function VendorApp({ vendorUid, onLogout }: VendorProps) {
   const m = metricas(clients);
 
   return (
-    <div className="page">
-      <header className="topbar">
-        <span className="logo">📒 VentaFlow</span>
-
-        <nav className="nav">
+    <div className="min-h-screen">
+      <Topbar>
+        <nav className="flex items-center gap-1.5">
           <button
             type="button"
-            className={`nav-btn${vista.tipo === "dashboard" ? " active" : ""}`}
+            className={navBtnCls(vista.tipo === "dashboard")}
             onClick={() => setVista({ tipo: "dashboard" })}
           >
             Dashboard
@@ -305,7 +467,7 @@ function VendorApp({ vendorUid, onLogout }: VendorProps) {
 
           <button
             type="button"
-            className={`nav-btn${vista.tipo === "lista" ? " active" : ""}`}
+            className={navBtnCls(vista.tipo === "lista")}
             onClick={() => setVista({ tipo: "lista" })}
           >
             Clientes
@@ -314,18 +476,20 @@ function VendorApp({ vendorUid, onLogout }: VendorProps) {
 
           <button
             type="button"
-            className="nav-btn"
+            className={navBtnCls(false)}
             onClick={() => void onLogout()}
           >
             Salir
           </button>
         </nav>
-      </header>
+      </Topbar>
 
       {loading ? (
-        <main className="wrap">
-          <p className="mut center">Cargando tus clientes…</p>
-        </main>
+        <Wrap>
+          <p className="py-16 text-center text-muted-foreground">
+            Cargando tus clientes…
+          </p>
+        </Wrap>
       ) : vista.tipo === "dashboard" ? (
         <Dashboard clientes={clients} />
       ) : vista.tipo === "lista" ? (
@@ -440,114 +604,142 @@ function ListaClientes({
   };
 
   return (
-    <main className="wrap">
-      <div className="resumen">
-        <div>
-          <span>Total por cobrar</span>
-          <strong className="deuda">{fmtMoney(totalPorCobrar)}</strong>
-        </div>
-        <div>
-          <span>Clientes con deuda</span>
-          <strong>{allClients.filter((c) => deuda(c) > 0).length}</strong>
-        </div>
+    <Wrap>
+      <div className="grid grid-cols-2 gap-4">
+        <Card className="gap-1 p-5">
+          <span className="text-sm text-muted-foreground">
+            Total por cobrar
+          </span>
+          <strong className={cn("text-2xl font-bold", moneyCls, deudaCls)}>
+            {fmtMoney(totalPorCobrar)}
+          </strong>
+        </Card>
+        <Card className="gap-1 p-5">
+          <span className="text-sm text-muted-foreground">
+            Clientes con deuda
+          </span>
+          <strong className={cn("text-2xl font-bold", moneyCls)}>
+            {allClients.filter((c) => deuda(c) > 0).length}
+          </strong>
+        </Card>
       </div>
 
-      {aviso && (
-        <div className="aviso-ok" role="status">
-          {aviso}
-        </div>
-      )}
+      {aviso && <AvisoOk>{aviso}</AvisoOk>}
 
-      <form className="form-card" onSubmit={agregar}>
-        <h3>Agregar cliente</h3>
-        <div className="stack">
-          <div className="row">
-            <input
+      <Card className="gap-4 p-6">
+        <h3 className="text-base font-semibold tracking-tight">
+          Agregar cliente
+        </h3>
+        <form className="flex flex-col gap-4" onSubmit={agregar}>
+          <div className="flex flex-wrap gap-3">
+            <Input
+              className="min-w-36 flex-1"
               placeholder="Nombre *"
               value={name}
               onChange={(e) => setName(e.target.value)}
             />
-            <input
+            <Input
+              className="min-w-36 flex-1"
               placeholder="Apellido"
               value={lastName}
               onChange={(e) => setLastName(e.target.value)}
             />
           </div>
-          <div className="row">
-            <input
+          <div className="flex flex-wrap gap-3">
+            <Input
+              className="min-w-52 flex-1"
               placeholder="Teléfono (será su usuario para entrar) *"
               inputMode="tel"
               autoComplete="tel"
               value={telephone}
               onChange={(e) => setTelephone(e.target.value)}
             />
-            <button className="btn btn-primary" type="submit" disabled={busy}>
+            <Button type="submit" disabled={busy}>
               {busy ? "Creando…" : "Agregar"}
-            </button>
+            </Button>
           </div>
-          <p className="mut small">
+          <p className="text-xs leading-relaxed text-muted-foreground">
             Al agregarlo se crea también su cuenta: entrará con su teléfono
             y la contraseña temporal que se genera aquí.
           </p>
-          {formError && <p className="error">{formError}</p>}
+          {formError && <ErrorMsg>{formError}</ErrorMsg>}
           {creado && (
-            <div className="success-card">
+            <div className="flex flex-col gap-1 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3.5 text-sm text-emerald-900">
               <strong>✅ Cuenta creada para {creado.nombre}</strong>
               <span>
                 Usuario: <b>{creado.telephone}</b> · Contraseña temporal:{" "}
                 <b>{creado.tempPassword}</b>
               </span>
-              <span className="small">
+              <span className="text-xs">
                 Entrégale estos datos ahora: la contraseña no se guarda y
                 no se puede volver a ver.
               </span>
             </div>
           )}
-        </div>
-      </form>
+        </form>
+      </Card>
 
-      <input
-        className="search"
-        placeholder="🔍 Buscar cliente..."
-        value={busqueda}
-        onChange={(e) => setBusqueda(e.target.value)}
-      />
+      <div className="relative">
+        <Search className="pointer-events-none absolute top-1/2 left-3.5 size-4.5 -translate-y-1/2 text-slate-400" />
+        <Input
+          className="bg-card pl-10.5"
+          placeholder="Buscar cliente..."
+          value={busqueda}
+          onChange={(e) => setBusqueda(e.target.value)}
+        />
+      </div>
 
-      <div className="list">
+      <div className="flex flex-col gap-3">
         {clientes.map((c) => {
           const d = deuda(c);
           return (
             <div
-              className="cliente-card"
+              className="group flex cursor-pointer items-center justify-between gap-3 rounded-xl border bg-card p-4 shadow-sm transition hover:border-primary/50 hover:shadow-md"
               key={c.id}
               onClick={() => onAbrir(c.id)}
             >
-              <div>
-                <strong>{fullName(c)}</strong>
-                {c.telephone && <span className="mut"> · {c.telephone}</span>}
-                <div className="mut small">
-                  {c.items?.length || 0} productos fiados
+              <div className="flex min-w-0 items-center gap-3.5">
+                <span className="grid size-11 shrink-0 place-items-center rounded-full bg-blue-50 text-sm font-bold text-primary">
+                  {iniciales(fullName(c))}
+                </span>
+                <div className="min-w-0">
+                  <strong className="block truncate">{fullName(c)}</strong>
+                  <div className="text-xs text-muted-foreground">
+                    {c.telephone ? `${c.telephone} · ` : ""}
+                    {c.items?.length || 0} productos fiados
+                  </div>
                 </div>
               </div>
-              <div className="right">
-                <strong className={d > 0 ? "deuda" : "pagado"}>
+              <div className="flex shrink-0 flex-col items-end gap-1">
+                <strong
+                  className={cn(
+                    "text-base font-bold",
+                    moneyCls,
+                    d > 0 ? deudaCls : pagadoCls,
+                  )}
+                >
                   {fmtMoney(d)}
                 </strong>
-                <button
-                  className="link danger"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    eliminar(c);
-                  }}
-                >
-                  eliminar
-                </button>
+                <span className="flex items-center gap-2">
+                  <Badge variant={d > 0 ? "danger" : "success"}>
+                    {d > 0 ? "Con deuda" : "Al día"}
+                  </Badge>
+                  <button
+                    className="py-0.5 text-xs font-medium text-red-600 underline-offset-2 hover:underline"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      eliminar(c);
+                    }}
+                  >
+                    eliminar
+                  </button>
+                </span>
               </div>
             </div>
           );
         })}
         {clientes.length === 0 && (
-          <p className="mut center">
+          <p className="py-10 text-center text-sm text-muted-foreground">
             {allClients.length === 0
               ? "Todavía no tienes clientes. Agrega el primero con el formulario de arriba: solo necesitas su nombre y su número de teléfono."
               : "Ningún cliente coincide con tu búsqueda. Prueba con otro nombre."}
@@ -576,7 +768,7 @@ function ListaClientes({
           onCancel={() => setClienteAEliminar(null)}
         />
       )}
-    </main>
+    </Wrap>
   );
 }
 
@@ -615,29 +807,34 @@ export function ConfirmModal({
   }, [cancelLabel, onConfirm, onCancel]);
 
   return (
-    <div className="modal-overlay" onClick={onCancel}>
+    <div
+      className="fixed inset-0 z-50 grid place-items-center bg-slate-950/60 p-4 backdrop-blur-sm"
+      onClick={onCancel}
+    >
       <div
-        className="modal-card"
+        className="animate-in fade-in zoom-in-95 w-full max-w-md rounded-2xl border bg-card p-6 shadow-xl duration-150"
         role="dialog"
         aria-modal="true"
         aria-label={title}
         onClick={(e) => e.stopPropagation()}
       >
-        <h3>{title}</h3>
-        <p className="mut">{message}</p>
-        <div className="modal-actions">
+        <h3 className="text-lg font-semibold tracking-tight">{title}</h3>
+        <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+          {message}
+        </p>
+        <div className="mt-5 flex justify-end gap-2.5">
           {cancelLabel !== null && (
-            <button className="btn btn-cancel" type="button" onClick={onCancel}>
+            <Button variant="outline" type="button" onClick={onCancel}>
               {cancelLabel}
-            </button>
+            </Button>
           )}
-          <button
-            className={`btn ${confirmTone === "danger" ? "btn-danger" : "btn-primary"}`}
+          <Button
+            variant={confirmTone === "danger" ? "destructive" : "default"}
             type="button"
             onClick={onConfirm}
           >
             {confirmLabel}
-          </button>
+          </Button>
         </div>
       </div>
     </div>
@@ -668,9 +865,11 @@ function DetalleCliente({ onSave, cliente }: DetalleProps) {
 
   if (!cliente)
     return (
-      <main className="wrap">
-        <p className="mut center">Cliente no encontrado.</p>
-      </main>
+      <Wrap>
+        <p className="py-16 text-center text-muted-foreground">
+          Cliente no encontrado.
+        </p>
+      </Wrap>
     );
 
   const d = deuda(cliente);
@@ -741,36 +940,38 @@ function DetalleCliente({ onSave, cliente }: DetalleProps) {
   };
 
   return (
-    <main className="wrap">
-      {aviso && (
-        <div className="aviso-ok" role="status">
-          {aviso}
-        </div>
-      )}
-      <div className="cliente-head">
+    <Wrap>
+      {aviso && <AvisoOk>{aviso}</AvisoOk>}
+      <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h2>{fullName(cliente)}</h2>
+          <h2 className="text-2xl font-bold tracking-tight">
+            {fullName(cliente)}
+          </h2>
           {cliente.telephone && (
-            <span className="mut">{cliente.telephone}</span>
+            <span className="text-sm text-muted-foreground">
+              {cliente.telephone}
+            </span>
           )}
         </div>
-        <div className="total-box">
-          <span>Deuda actual</span>
-          <strong className={d > 0 ? "deuda" : "pagado"}>{fmtMoney(d)}</strong>
-        </div>
+        <TotalBox monto={d} />
       </div>
 
-      <form className="form-card" onSubmit={agregarItem}>
-        <h3>Agregar fiado</h3>
-        <div className="row wrap-row">
-          <input
-            className="grow"
+      <Card className="gap-4 p-6">
+        <h3 className="text-base font-semibold tracking-tight">
+          Agregar fiado
+        </h3>
+        <form
+          className="flex flex-wrap items-end gap-3"
+          onSubmit={agregarItem}
+        >
+          <Input
+            className="min-w-44 flex-[2]"
             placeholder="Descripción (ej: 2 libras de arroz) *"
             value={desc}
             onChange={(e) => setDesc(e.target.value)}
           />
-          <input
-            className="num"
+          <Input
+            className="w-[110px] flex-none"
             type="number"
             min="0"
             step="0.01"
@@ -778,8 +979,8 @@ function DetalleCliente({ onSave, cliente }: DetalleProps) {
             value={precio}
             onChange={(e) => setPrecio(e.target.value)}
           />
-          <input
-            className="num"
+          <Input
+            className="w-20 flex-none"
             type="number"
             min="1"
             step="1"
@@ -787,35 +988,40 @@ function DetalleCliente({ onSave, cliente }: DetalleProps) {
             value={cantidad}
             onChange={(e) => setCantidad(e.target.value)}
           />
-          <button className="btn btn-primary" type="submit">
-            Añadir
-          </button>
-        </div>
-      </form>
+          <Button type="submit">Añadir</Button>
+        </form>
+      </Card>
 
-      <div className="table-card">
-        <h3>Productos fiados</h3>
+      <Card className="gap-2 p-6">
+        <h3 className="text-base font-semibold tracking-tight">
+          Productos fiados
+        </h3>
         {(cliente.items || []).length === 0 && (
-          <p className="mut">
+          <p className="text-sm text-muted-foreground">
             Este cliente aún no tiene productos fiados. Agrega el primero
             con el formulario «Agregar fiado» de arriba.
           </p>
         )}
         {(cliente.items || []).map((it) => (
-          <div className="item-row" key={it.id}>
-            <div>
-              <strong>{it.descripcion}</strong>
-              <div className="mut small">
+          <div
+            className="flex items-center justify-between gap-3 border-b border-slate-100 py-3 last:border-0"
+            key={it.id}
+          >
+            <div className="min-w-0">
+              <strong className="block truncate">{it.descripcion}</strong>
+              <div className="text-xs text-muted-foreground">
                 {fmtFecha(it.fecha)} ·{" "}
                 {it.cantidad > 1
                   ? `${it.cantidad} × ${fmtMoney(it.precio)}`
                   : fmtMoney(it.precio)}
               </div>
             </div>
-            <div className="right">
-              <strong>{fmtMoney(it.precio * (it.cantidad || 1))}</strong>
+            <div className="flex shrink-0 flex-col items-end gap-0.5">
+              <strong className={moneyCls}>
+                {fmtMoney(it.precio * (it.cantidad || 1))}
+              </strong>
               <button
-                className="link danger"
+                className="py-0.5 text-xs font-medium text-red-600 underline-offset-2 hover:underline"
                 onClick={() => setItemAQuitar(it)}
               >
                 quitar
@@ -823,81 +1029,73 @@ function DetalleCliente({ onSave, cliente }: DetalleProps) {
             </div>
           </div>
         ))}
-        <div className="totales">
-          <div>
-            <span>Total fiado:</span>
-            <strong>{fmtMoney(totalItems(cliente))}</strong>
-          </div>
-          <div>
-            <span>Total abonado:</span>
-            <strong className="pagado">
-              − {fmtMoney(totalPagos(cliente))}
-            </strong>
-          </div>
-          {saldoAFavor(cliente) > 0 && (
-            <div>
-              <span>Saldo a favor:</span>
-              <strong className="pagado">
-                + {fmtMoney(saldoAFavor(cliente))}
-              </strong>
-            </div>
-          )}
-          <div className="gran-total">
-            <span>Deuda actual:</span>
-            <strong className="deuda">{fmtMoney(d)}</strong>
-          </div>
-        </div>
-      </div>
+        <Totales cliente={cliente} />
+      </Card>
 
-      <form className="form-card" onSubmit={registrarPago}>
-        <h3>Registrar abono</h3>
-        <div className="row">
-          <input
-            className="num"
-            type="number"
-            min="0"
-            step="0.01"
-            placeholder="Monto del abono"
-            value={montoPago}
-            onChange={(e) => setMontoPago(e.target.value)}
-          />
-          <button className="btn btn-ok" type="submit">
-            Abonar
-          </button>
-          {d > 0 && (
-            <button
-              className="btn btn-ghost"
-              type="button"
-              onClick={() => setConfirmarSaldar(true)}
-            >
-              Saldar todo
-            </button>
-          )}
-        </div>
-        <div className="chips">
-          <span className="mut small">Montos rápidos:</span>
-          {[50, 100, 200, 500].map((v) => (
-            <button
-              key={v}
-              type="button"
-              className="chip"
-              onClick={() => setMontoPago(String(v))}
-            >
-              C$ {v}
-            </button>
-          ))}
-        </div>
+      <Card className="gap-4 p-6">
+        <h3 className="text-base font-semibold tracking-tight">
+          Registrar abono
+        </h3>
+        <form onSubmit={registrarPago}>
+          <div className="flex flex-wrap gap-3">
+            <Input
+              className="w-[150px] flex-none"
+              type="number"
+              min="0"
+              step="0.01"
+              placeholder="Monto del abono"
+              value={montoPago}
+              onChange={(e) => setMontoPago(e.target.value)}
+            />
+            <Button variant="success" type="submit">
+              Abonar
+            </Button>
+            {d > 0 && (
+              <Button
+                variant="outline"
+                type="button"
+                onClick={() => setConfirmarSaldar(true)}
+              >
+                Saldar todo
+              </Button>
+            )}
+          </div>
+          <div className="mt-4 flex flex-wrap items-center gap-2">
+            <span className="text-xs text-muted-foreground">
+              Montos rápidos:
+            </span>
+            {[50, 100, 200, 500].map((v) => (
+              <Button
+                key={v}
+                type="button"
+                variant="outline"
+                size="sm"
+                className="rounded-full px-4"
+                onClick={() => setMontoPago(String(v))}
+              >
+                C$ {v}
+              </Button>
+            ))}
+          </div>
+        </form>
         {(cliente.pagos || []).length > 0 && (
-          <div className="pagos">
+          <div className="flex flex-col gap-2">
             {(cliente.pagos || []).map((p) => (
-              <div className="pago-row" key={p.id}>
-                <span className="mut small">{fmtFecha(p.fecha)}</span>
-                <strong className="pagado">− {fmtMoney(p.monto)}</strong>
+              <div
+                className="flex items-center justify-between rounded-lg bg-emerald-50 px-3.5 py-2 text-sm"
+                key={p.id}
+              >
+                <span className="text-xs text-muted-foreground">
+                  {fmtFecha(p.fecha)}
+                </span>
+                <strong className={cn(moneyCls, pagadoCls)}>
+                  − {fmtMoney(p.monto)}
+                </strong>
               </div>
             ))}
           </div>
         )}
-      </form>
+      </Card>
 
       {itemAQuitar && (
         <ConfirmModal
@@ -919,7 +1117,7 @@ function DetalleCliente({ onSave, cliente }: DetalleProps) {
           onCancel={() => setConfirmarSaldar(false)}
         />
       )}
-    </main>
+    </Wrap>
   );
 }
 
@@ -936,106 +1134,95 @@ function ClientApp({ clientUid, onLogout }: ClientProps) {
   useEffect(() => subscribeOwnClient(clientUid, setCliente), [clientUid]);
 
   return (
-    <div className="page">
-      <header className="topbar">
-        <span className="logo">📒 VentaFlow</span>
-        <button className="btn btn-ghost" onClick={() => void onLogout()}>
+    <div className="min-h-screen">
+      <Topbar>
+        <Button variant="outline" size="sm" onClick={() => void onLogout()}>
           Salir
-        </button>
-      </header>
+        </Button>
+      </Topbar>
 
       {cliente === undefined ? (
-        <main className="wrap">
-          <p className="mut center">Cargando tu registro…</p>
-        </main>
+        <Wrap>
+          <p className="py-16 text-center text-muted-foreground">
+            Cargando tu registro…
+          </p>
+        </Wrap>
       ) : cliente === null ? (
-        <main className="wrap">
-          <p className="mut center">Tu registro no fue encontrado.</p>
-        </main>
+        <Wrap>
+          <p className="py-16 text-center text-muted-foreground">
+            Tu registro no fue encontrado.
+          </p>
+        </Wrap>
       ) : (
-        <main className="wrap">
-          <div className="cliente-head">
+        <Wrap>
+          <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
-              <h2>Hola, {cliente.name}</h2>
-              <span className="mut">Este es tu estado de cuenta</span>
+              <h2 className="text-2xl font-bold tracking-tight">
+                Hola, {cliente.name}
+              </h2>
+              <span className="text-sm text-muted-foreground">
+                Este es tu estado de cuenta
+              </span>
             </div>
-            <div className="total-box">
-              <span>Deuda actual</span>
-              <strong
-                className={deuda(cliente) > 0 ? "deuda" : "pagado"}
-              >
-                {fmtMoney(deuda(cliente))}
-              </strong>
-            </div>
+            <TotalBox monto={deuda(cliente)} />
           </div>
 
-          <div className="table-card">
-            <h3>Productos fiados</h3>
+          <Card className="gap-2 p-6">
+            <h3 className="text-base font-semibold tracking-tight">
+              Productos fiados
+            </h3>
             {(cliente.items || []).length === 0 && (
-              <p className="mut">Sin productos registrados.</p>
+              <p className="text-sm text-muted-foreground">
+                Sin productos registrados.
+              </p>
             )}
             {(cliente.items || []).map((it) => (
-              <div className="item-row" key={it.id}>
-                <div>
-                  <strong>{it.descripcion}</strong>
-                  <div className="mut small">
+              <div
+                className="flex items-center justify-between gap-3 border-b border-slate-100 py-3 last:border-0"
+                key={it.id}
+              >
+                <div className="min-w-0">
+                  <strong className="block truncate">
+                    {it.descripcion}
+                  </strong>
+                  <div className="text-xs text-muted-foreground">
                     {fmtFecha(it.fecha)} ·{" "}
                     {it.cantidad > 1
                       ? `${it.cantidad} × ${fmtMoney(it.precio)}`
                       : fmtMoney(it.precio)}
                   </div>
                 </div>
-                <div className="right">
-                  <strong>
-                    {fmtMoney(it.precio * (it.cantidad || 1))}
-                  </strong>
-                </div>
+                <strong className={cn("shrink-0", moneyCls)}>
+                  {fmtMoney(it.precio * (it.cantidad || 1))}
+                </strong>
               </div>
             ))}
-            <div className="totales">
-              <div>
-                <span>Total fiado:</span>
-                <strong>{fmtMoney(totalItems(cliente))}</strong>
-              </div>
-              <div>
-                <span>Total abonado:</span>
-                <strong className="pagado">
-                  − {fmtMoney(totalPagos(cliente))}
-                </strong>
-              </div>
-              {saldoAFavor(cliente) > 0 && (
-                <div>
-                  <span>Saldo a favor:</span>
-                  <strong className="pagado">
-                    + {fmtMoney(saldoAFavor(cliente))}
-                  </strong>
-                </div>
-              )}
-              <div className="gran-total">
-                <span>Deuda actual:</span>
-                <strong className="deuda">
-                  {fmtMoney(deuda(cliente))}
-                </strong>
-              </div>
-            </div>
-          </div>
+            <Totales cliente={cliente} />
+          </Card>
 
           {(cliente.pagos || []).length > 0 && (
-            <div className="table-card">
-              <h3>Mis abonos</h3>
-              <div className="pagos" style={{ marginTop: 0 }}>
+            <Card className="gap-3 p-6">
+              <h3 className="text-base font-semibold tracking-tight">
+                Mis abonos
+              </h3>
+              <div className="flex flex-col gap-2">
                 {(cliente.pagos || []).map((p) => (
-                  <div className="pago-row" key={p.id}>
-                    <span className="mut small">{fmtFecha(p.fecha)}</span>
-                    <strong className="pagado">
+                  <div
+                    className="flex items-center justify-between rounded-lg bg-emerald-50 px-3.5 py-2 text-sm"
+                    key={p.id}
+                  >
+                    <span className="text-xs text-muted-foreground">
+                      {fmtFecha(p.fecha)}
+                    </span>
+                    <strong className={cn(moneyCls, pagadoCls)}>
                       − {fmtMoney(p.monto)}
                     </strong>
                   </div>
                 ))}
               </div>
-            </div>
+            </Card>
           )}
-        </main>
+        </Wrap>
       )}
     </div>
   );

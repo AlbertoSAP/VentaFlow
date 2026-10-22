@@ -9,6 +9,7 @@ module.exports = {
     "^.+\\.(ts|tsx)$": ["babel-jest"],
   },
   moduleNameMapper: {
+    "^@/(.*)$": "<rootDir>/src/$1",
     "\\.css$": "<rootDir>/test/fakes/styleMock.cjs",
     "^firebase/app$": "<rootDir>/test/fakes/firebaseApp.ts",
     "^firebase/auth$": "<rootDir>/test/fakes/firebaseAuth.ts",
