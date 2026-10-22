@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
-import { Search } from "lucide-react";
+import { MessageCircle, Search } from "lucide-react";
 import {
   uid,
   fmtMoney,
@@ -8,6 +8,9 @@ import {
   totalPagos,
   deuda,
   saldoAFavor,
+  whatsAppUrl,
+  mensajeEstadoCuenta,
+  mensajeDatosAcceso,
   fullName,
   subscribeOwnClient,
   type Client,
@@ -674,6 +677,27 @@ function ListaClientes({
                 Entrégale estos datos ahora: la contraseña no se guarda y
                 no se puede volver a ver.
               </span>
+              <Button
+                asChild
+                variant="success"
+                size="sm"
+                className="mt-2 self-start"
+              >
+                <a
+                  href={whatsAppUrl(
+                    creado.telephone,
+                    mensajeDatosAcceso(
+                      creado.nombre,
+                      creado.telephone,
+                      creado.tempPassword,
+                    ),
+                  )}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  <MessageCircle /> Enviar datos por WhatsApp
+                </a>
+              </Button>
             </div>
           )}
         </form>
@@ -953,7 +977,23 @@ function DetalleCliente({ onSave, cliente }: DetalleProps) {
             </span>
           )}
         </div>
-        <TotalBox monto={d} />
+        <div className="flex flex-col items-end gap-2.5">
+          <TotalBox monto={d} />
+          {cliente.telephone && (
+            <Button asChild variant="success" size="sm">
+              <a
+                href={whatsAppUrl(
+                  cliente.telephone,
+                  mensajeEstadoCuenta(cliente),
+                )}
+                target="_blank"
+                rel="noreferrer"
+              >
+                <MessageCircle /> Enviar estado por WhatsApp
+              </a>
+            </Button>
+          )}
+        </div>
       </div>
 
       <Card className="gap-4 p-6">

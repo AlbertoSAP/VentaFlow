@@ -286,6 +286,23 @@ describe("vista del vendedor", () => {
     ).toBeInTheDocument();
   });
 
+  it("el detalle ofrece enviar el estado de cuenta por WhatsApp", async () => {
+    const user = userEvent.setup();
+    setAuth(VENDOR);
+    setClientsHook({ clients: [makeClient({ id: "a1" })] });
+    render(<App />);
+
+    await user.click(screen.getByRole("button", { name: /Clientes/ }));
+    await user.click(screen.getByText("Ana López"));
+
+    const link = screen.getByRole("link", {
+      name: /Enviar estado por WhatsApp/,
+    });
+    const href = link.getAttribute("href") ?? "";
+    expect(href.startsWith("https://wa.me/50588887777?text=")).toBe(true);
+    expect(decodeURIComponent(href)).toContain("Deuda actual: C$ 100.00");
+  });
+
   it("saldar todo confirma en el modal y registra el abono por la deuda", async () => {
     const user = userEvent.setup();
     const saveClient = jest.fn(async () => {});

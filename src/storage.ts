@@ -119,6 +119,82 @@ export function saldoAFavor(c: Client): number {
   return Math.max(0, totalPagos(c) - totalItems(c));
 }
 
+// ---------- WhatsApp ----------
+
+export interface Movimiento {
+  tipo: "pago" | "fiado";
+  monto: number;
+  fecha: number;
+  desc?: string;
+}
+
+/** Fiados y abonos mezclados, del más reciente al más antiguo */
+export function ultimosMovimientos(c: Client, limite = 5): Movimiento[] {
+  const movs: Movimiento[] = [
+    ...(c.pagos || []).map((p) => ({
+      tipo: "pago" as const,
+      monto: p.monto,
+      fecha: p.fecha,
+    })),
+    ...(c.items || []).map((it) => ({
+      tipo: "fiado" as const,
+      monto: it.precio * (it.cantidad || 1),
+      fecha: it.fecha,
+      desc: it.descripcion,
+    })),
+  ];
+  return movs.sort((a, b) => b.fecha - a.fecha).slice(0, limite);
+}
+
+/** Teléfono en formato internacional para wa.me (Nicaragua: 505) */
+export function whatsAppPhone(telephone: string): string {
+  const digits = telephone.replace(/\D/g, "");
+  return digits.length === 8 ? `505${digits}` : digits;
+}
+
+/** Enlace wa.me con el mensaje ya codificado */
+export function whatsAppUrl(telephone: string, texto: string): string {
+  return `https://wa.me/${whatsAppPhone(telephone)}?text=${encodeURIComponent(texto)}`;
+}
+
+/** Resumen de la cuenta, listo para enviar al cliente por WhatsApp */
+export function mensajeEstadoCuenta(c: Client): string {
+  const lines = [
+    `Hola ${c.name}, te comparto tu estado de cuenta en VentaFlow:`,
+    "",
+    `Total fiado: ${fmtMoney(totalItems(c))}`,
+    `Total abonado: ${fmtMoney(totalPagos(c))}`,
+  ];
+  if (saldoAFavor(c) > 0)
+    lines.push(`Saldo a favor: ${fmtMoney(saldoAFavor(c))}`);
+  lines.push(`Deuda actual: ${fmtMoney(deuda(c))}`);
+  const movs = ultimosMovimientos(c);
+  if (movs.length > 0) {
+    lines.push("", "Últimos movimientos:");
+    for (const m of movs)
+      lines.push(
+        m.tipo === "pago"
+          ? `• ${fmtFecha(m.fecha)} — Abono: ${fmtMoney(m.monto)}`
+          : `• ${fmtFecha(m.fecha)} — ${m.desc}: ${fmtMoney(m.monto)}`,
+      );
+  }
+  return lines.join("\n");
+}
+
+/** Datos de acceso de un cliente recién creado, para enviárselos */
+export function mensajeDatosAcceso(
+  nombre: string,
+  telephone: string,
+  tempPassword: string,
+): string {
+  return [
+    `Hola ${nombre}, ya tienes tu cuenta en VentaFlow para ver tu estado de cuenta:`,
+    `Usuario: tu número de teléfono (${telephone})`,
+    `Contraseña temporal: ${tempPassword}`,
+    "Entrá con esos datos en la app. ¡Gracias!",
+  ].join("\n");
+}
+
 // ---------- Vendedores ----------
 export function writeVendorProfile(v: Vendor): Promise<void> {
   const { id, ...profile } = v;

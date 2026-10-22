@@ -3,6 +3,11 @@ import {
   fmtFecha,
   generateEmailAlias,
   generateTempPassword,
+  whatsAppPhone,
+  whatsAppUrl,
+  mensajeEstadoCuenta,
+  mensajeDatosAcceso,
+  ultimosMovimientos,
   fullName,
   totalItems,
   totalPagos,
@@ -44,6 +49,63 @@ describe("utilidades de formato", () => {
     expect(generateEmailAlias("50588887777")).toBe(
       "flowventas13+88887777@gmail.com",
     );
+  });
+
+  it("whatsAppPhone normaliza al formato internacional de Nicaragua", () => {
+    expect(whatsAppPhone("8888 7777")).toBe("50588887777");
+    expect(whatsAppPhone("+505 8888-7777")).toBe("50588887777");
+    expect(whatsAppPhone("50588887777")).toBe("50588887777");
+  });
+
+  it("whatsAppUrl arma el enlace wa.me con el mensaje codificado", () => {
+    const url = whatsAppUrl("88887777", "Hola Ana: debes C$ 100.00");
+    expect(url.startsWith("https://wa.me/50588887777?text=")).toBe(true);
+    expect(url).toContain(encodeURIComponent("Hola Ana: debes C$ 100.00"));
+  });
+
+  it("mensajeEstadoCuenta resume totales, deuda y últimos movimientos", () => {
+    const msg = mensajeEstadoCuenta(makeClient());
+    expect(msg).toContain("Hola Ana, te comparto tu estado de cuenta");
+    expect(msg).toContain("Total fiado: C$ 120.00");
+    expect(msg).toContain("Total abonado: C$ 20.00");
+    expect(msg).toContain("Deuda actual: C$ 100.00");
+    expect(msg).toContain("2 libras de arroz");
+    expect(msg).toContain("Abono: C$ 20.00");
+    expect(msg).not.toContain("Saldo a favor");
+  });
+
+  it("mensajeEstadoCuenta incluye el saldo a favor cuando existe", () => {
+    const msg = mensajeEstadoCuenta(
+      makeClient({
+        items: [
+          { id: "i1", descripcion: "Arroz", precio: 100, cantidad: 1, fecha: 1 },
+        ],
+        pagos: [{ id: "p1", monto: 150, fecha: 2 }],
+      }),
+    );
+    expect(msg).toContain("Saldo a favor: C$ 50.00");
+    expect(msg).toContain("Deuda actual: C$ 0.00");
+  });
+
+  it("mensajeDatosAcceso incluye usuario y contraseña temporal", () => {
+    const msg = mensajeDatosAcceso("Luis Pérez", "99998888", "Temp123XYZ");
+    expect(msg).toContain("Hola Luis Pérez");
+    expect(msg).toContain("99998888");
+    expect(msg).toContain("Temp123XYZ");
+  });
+
+  it("ultimosMovimientos mezcla fiados y abonos del más reciente al más antiguo", () => {
+    const movs = ultimosMovimientos(
+      makeClient({
+        items: [
+          { id: "i1", descripcion: "Arroz", precio: 100, cantidad: 1, fecha: 100 },
+          { id: "i2", descripcion: "Aceite", precio: 80, cantidad: 1, fecha: 300 },
+        ],
+        pagos: [{ id: "p1", monto: 50, fecha: 200 }],
+      }),
+    );
+    expect(movs.map((m) => m.tipo)).toEqual(["fiado", "pago", "fiado"]);
+    expect(movs[0].desc).toBe("Aceite");
   });
 
   it("generateTempPassword genera claves de 10 caracteres seguras", () => {
