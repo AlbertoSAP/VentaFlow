@@ -1,7 +1,7 @@
 import {
   fmtMoney,
   fmtFecha,
-  phoneToEmail,
+  generateEmailAlias,
   generateTempPassword,
   fullName,
   totalItems,
@@ -33,9 +33,17 @@ describe("utilidades de formato", () => {
     expect(fmtFecha(1791845068683)).toMatch(/^\d{2}\/\d{2}\/2026$/);
   });
 
-  it("phoneToEmail genera el email de login desde el teléfono", () => {
-    expect(phoneToEmail("8888 7777")).toBe("88887777@ventaflow.app");
-    expect(phoneToEmail("+505 8888-7777")).toBe("50588887777@ventaflow.app");
+  it("generateEmailAlias genera el alias del buzón único desde el teléfono", () => {
+    expect(generateEmailAlias("8888 7777")).toBe(
+      "flowventas13+88887777@gmail.com",
+    );
+    // con o sin código de país, el alias es el mismo
+    expect(generateEmailAlias("+505 8888-7777")).toBe(
+      "flowventas13+88887777@gmail.com",
+    );
+    expect(generateEmailAlias("50588887777")).toBe(
+      "flowventas13+88887777@gmail.com",
+    );
   });
 
   it("generateTempPassword genera claves de 10 caracteres seguras", () => {
@@ -101,7 +109,7 @@ describe("roles y persistencia (RTDB simulada)", () => {
           idAuthVendedor: "uid-v",
           name: "Ana",
           lastName: "López",
-          email: "88887777@ventaflow.app",
+          email: "flowventas13+88887777@gmail.com",
           telephone: "88887777",
           created: 1,
           items: [],

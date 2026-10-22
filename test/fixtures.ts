@@ -10,7 +10,7 @@ export function makeClient(overrides: Partial<Client> = {}): Client {
     idAuthVendedor: "vendor-1",
     name: "Ana",
     lastName: "López",
-    email: "88887777@ventaflow.app",
+    email: "flowventas13+88887777@gmail.com",
     telephone: "88887777",
     created: 1791845068683,
     items: [

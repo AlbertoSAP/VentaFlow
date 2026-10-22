@@ -10,7 +10,7 @@ import { auth } from "../firebase.ts";
 import {
   getUserRole,
   writeVendorProfile,
-  phoneToEmail,
+  generateEmailAlias,
   type Rol,
 } from "../storage.ts";
 
@@ -91,7 +91,7 @@ export const useAuth = () => {
 
   /** El cliente entra con su número de teléfono y su contraseña */
   const loginClient = async (telephone: string, password: string) => {
-    await signInWithEmailAndPassword(auth, phoneToEmail(telephone), password);
+    await signInWithEmailAndPassword(auth, generateEmailAlias(telephone), password);
   };
 
   const logout = async () => {

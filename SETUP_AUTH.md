@@ -47,8 +47,10 @@ Qué garantizan esas reglas:
 - **Cliente**: NO se registra solo. Cuando un vendedor lo agrega desde
   la app, ocurren 3 cosas:
   1. Se crea su cuenta en Firebase Auth desde una **app secundaria**
-     (así la sesión del vendedor no se cierra), con un email generado
-     desde su teléfono: `88887777@ventaflow.app`.
+     (así la sesión del vendedor no se cierra), con un **alias** de un
+     único buzón real del negocio generado desde su teléfono:
+     `flowventas13+88887777@gmail.com` (ver "Recuperación de
+     contraseña" más abajo).
   2. Se genera una **contraseña temporal** que se muestra UNA sola vez
      en pantalla. La contraseña no se guarda en la base de datos; el
      vendedor debe entregársela al cliente en ese momento.
@@ -73,11 +75,17 @@ clienteIndex/{uidCliente}     uidVendedor
   cuenta de Auth no se puede borrar desde el cliente web (eso requiere
   Admin SDK / Cloud Functions). La cuenta huérfana no puede ver nada:
   al entrar, la app le dice que no tiene registro activo.
-- **Recuperar contraseña del cliente** por correo no funciona (su email
-  es generado, no una bandeja real). Si un cliente la olvida, el
-  vendedor elimina su registro y lo vuelve a crear (pierde su
-  historial), o se cambia manualmente desde la consola de Firebase →
-  Authentication → Users.
+- **Recuperar contraseña del cliente**: su correo de cuenta es un
+  alias (`flowventas13+<teléfono>@gmail.com`) de un único buzón real
+  del negocio, así que el correo de restablecimiento de Firebase SÍ
+  llega, a ese buzón. Procedimiento cuando un cliente olvida su
+  contraseña: consola de Firebase → Authentication → el usuario →
+  restablecer contraseña (o el enlace que se agregue en la app); el
+  enlace llega a `flowventas13@gmail.com`, el vendedor lo abre, pone
+  una contraseña nueva y se la entrega al cliente (o le reenvía el
+  enlace para que la ponga él; vence en ~1 hora y es de un solo uso).
+  Las cuentas creadas antes de este cambio (con `@ventaflow.app`)
+  mantienen la limitación vieja hasta re-crearse.
 - Un mismo número de teléfono = una sola cuenta de cliente. Como el
   email se genera desde el teléfono, dos vendedores no pueden registrar
   al mismo cliente con el mismo número.

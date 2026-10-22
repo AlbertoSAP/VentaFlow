@@ -12,7 +12,7 @@ import {
   writeClient,
   writeClientIndex,
   deleteClientRecord,
-  phoneToEmail,
+  generateEmailAlias,
   generateTempPassword,
   type Client,
 } from "../storage.ts";
@@ -71,7 +71,7 @@ export const useClient = (vendorUid: string) => {
         error: "El teléfono debe tener al menos 8 dígitos: será el usuario del cliente para entrar.",
       };
 
-    const email = phoneToEmail(telephone);
+    const email = generateEmailAlias(telephone);
     const tempPassword = generateTempPassword();
 
     const secondaryApp = initializeApp(firebaseConfig, "Secondary");

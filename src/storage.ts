@@ -38,7 +38,7 @@ export interface Client {
   idAuthVendedor: string; // UID del vendedor dueño de este cliente
   name: string;
   lastName: string;
-  email: string; // email de login (generado desde el teléfono)
+  email: string; // email de login (alias generado desde el teléfono)
   telephone: string;
   created: number;
   items: FiadoItem[];
@@ -55,11 +55,23 @@ export const fullName = (c: Client): string =>
 
 /**
  * El cliente entra con su teléfono: internamente su cuenta de
- * Firebase Auth usa un email generado con ese número.
- * Ej: "8888 7777" -> "88887777@ventaflow.app"
+ * Firebase Auth usa un ALIAS con "+" de un único buzón real del
+ * negocio (flowventas13@gmail.com). Firebase ve una dirección
+ * distinta por cliente, pero todos los correos —incluido el de
+ * restablecer contraseña— llegan a ese mismo buzón.
+ * El identificador es el teléfono; si viene con el código de país
+ * de Nicaragua (505 + 8 dígitos) se usa solo el número local, para
+ * que el login genere siempre el mismo alias escriba como escriba.
+ * Ej: "8888 7777" -> "flowventas13+88887777@gmail.com"
  */
-export const phoneToEmail = (telephone: string): string =>
-  `${telephone.replace(/\D/g, "")}@ventaflow.app`;
+export const generateEmailAlias = (telephone: string): string => {
+  const digits = telephone.replace(/\D/g, "");
+  const userId =
+    digits.length === 11 && digits.startsWith("505")
+      ? digits.slice(3)
+      : digits;
+  return `flowventas13+${userId}@gmail.com`;
+};
 
 /** Contraseña temporal para un cliente nuevo: se muestra una sola vez */
 export function generateTempPassword(): string {

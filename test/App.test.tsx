@@ -314,7 +314,7 @@ describe("vista del cliente (solo lectura)", () => {
           idAuthVendedor: "vendor-1",
           name: "Ana",
           lastName: "López",
-          email: "88887777@ventaflow.app",
+          email: "flowventas13+88887777@gmail.com",
           telephone: "88887777",
           created: 1,
           items: [
@@ -352,7 +352,7 @@ describe("vista del cliente (solo lectura)", () => {
           idAuthVendedor: "vendor-1",
           name: "Luis",
           lastName: "Pérez",
-          email: "99998888@ventaflow.app",
+          email: "flowventas13+99998888@gmail.com",
           telephone: "99998888",
           created: 1,
           items: [

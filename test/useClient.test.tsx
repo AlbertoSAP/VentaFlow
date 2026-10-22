@@ -11,7 +11,7 @@ const record = (vendor: string, name: string) => ({
   idAuthVendedor: vendor,
   name,
   lastName: "Test",
-  email: "88887777@ventaflow.app",
+  email: "flowventas13+88887777@gmail.com",
   telephone: "88887777",
   created: 1,
   items: [],
@@ -58,7 +58,7 @@ describe("useClient", () => {
       idAuthVendedor: "vendor-1",
       name: "Ana",
       lastName: "López",
-      email: "88887777@ventaflow.app",
+      email: "flowventas13+88887777@gmail.com",
     });
     expect(__fakeDb.getData().clienteIndex[ids[0]]).toBe("vendor-1");
     // la app secundaria se limpia: sesión cerrada y app borrada

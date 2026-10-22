@@ -49,7 +49,7 @@ describe("useAuth", () => {
     });
     expect(signInWithEmailAndPassword).toHaveBeenCalledWith(
       expect.anything(),
-      "88887777@ventaflow.app",
+      "flowventas13+88887777@gmail.com",
       "secreto",
     );
   });
