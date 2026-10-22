@@ -1,5 +1,12 @@
 # VentaFlow — Puesta en marcha de roles (vendedor / cliente)
 
+> **App instalable (PWA):** la app se puede instalar en el teléfono
+> desde el navegador (Android: menú ⋮ → «Instalar app»; iPhone:
+> Compartir → «Agregar a inicio»). No requiere configuración: el
+> manifest, los iconos y el service worker se generan en el build
+> (`vite-plugin-pwa`, modo autoUpdate: cada despliegue nuevo se
+> aplica solo al reabrir la app).
+
 La app ya trae el código de autenticación con 2 roles. Para que funcione
 en el proyecto de Firebase **app-venta-f07d9** faltan 2 pasos en la
 consola (no se pueden hacer desde el código):
