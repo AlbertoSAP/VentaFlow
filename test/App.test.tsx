@@ -286,6 +286,65 @@ describe("vista del vendedor", () => {
     ).toBeInTheDocument();
   });
 
+  it("un producto frecuente llena el formulario de fiado con un toque", async () => {
+    const user = userEvent.setup();
+    __fakeDb.setData({
+      vendedores: {
+        "vendor-1": {
+          catalogo: { p1: { descripcion: "Arroz 1 lb", precio: 25 } },
+        },
+      },
+    });
+    setAuth(VENDOR);
+    setClientsHook({ clients: [makeClient({ id: "a1" })] });
+    render(<App />);
+
+    await user.click(screen.getByRole("button", { name: /Clientes/ }));
+    await user.click(screen.getByText("Ana López"));
+    await user.click(
+      screen.getByRole("button", { name: /Arroz 1 lb · C\$ 25\.00/ }),
+    );
+
+    expect(
+      screen.getByPlaceholderText(/Descripción \(ej: 2 libras de arroz\)/),
+    ).toHaveValue("Arroz 1 lb");
+    expect(screen.getByPlaceholderText("Precio *")).toHaveValue(25);
+  });
+
+  it("el editor de frecuentes guarda el producto en el catálogo del vendedor", async () => {
+    const user = userEvent.setup();
+    setAuth(VENDOR);
+    setClientsHook({ clients: [makeClient({ id: "a1" })] });
+    render(<App />);
+
+    await user.click(screen.getByRole("button", { name: /Clientes/ }));
+    await user.click(screen.getByText("Ana López"));
+    await user.click(
+      screen.getByRole("button", { name: "Editar productos frecuentes" }),
+    );
+    await user.type(
+      screen.getByPlaceholderText(/Producto frecuente/),
+      "Aceite 1 lt",
+    );
+    await user.type(screen.getByPlaceholderText("Precio"), "120");
+    await user.click(
+      screen.getByRole("button", { name: "Agregar frecuente" }),
+    );
+
+    // El guardado se verifica en la base (el fake de onValue emite
+    // una sola vez; en producción el chip aparece al instante).
+    const data = __fakeDb.getData() as any;
+    const entries = Object.values(
+      data.vendedores["vendor-1"].catalogo ?? {},
+    );
+    expect(entries).toEqual([
+      { descripcion: "Aceite 1 lt", precio: 120 },
+    ]);
+    expect(
+      await screen.findByText(/agregado a tus productos frecuentes/),
+    ).toBeInTheDocument();
+  });
+
   it("el detalle ofrece enviar el estado de cuenta por WhatsApp", async () => {
     const user = userEvent.setup();
     setAuth(VENDOR);

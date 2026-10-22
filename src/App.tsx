@@ -18,6 +18,8 @@ import {
 } from "./storage.ts";
 import { useAuth, mapAuthError } from "./hooks/useAuth.ts";
 import { useClient } from "./hooks/useClient.tsx";
+import { useCatalog } from "./hooks/useCatalog.ts";
+import type { CatalogProduct } from "./storage.ts";
 import Dashboard, { metricas } from "./Dashboard.tsx";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -443,6 +445,11 @@ function navBtnCls(active: boolean) {
 function VendorApp({ vendorUid, onLogout }: VendorProps) {
   const { clients, loading, createClient, deleteClient, saveClient } =
     useClient(vendorUid);
+  const {
+    products: catalogo,
+    addProduct: addFrecuente,
+    deleteProduct: deleteFrecuente,
+  } = useCatalog(vendorUid);
   const [vista, setVista] = useState<Vista>({ tipo: "dashboard" });
   const [busqueda, setBusqueda] = useState("");
 
@@ -511,6 +518,9 @@ function VendorApp({ vendorUid, onLogout }: VendorProps) {
           onSave={saveClient}
           cliente={clients.find((c) => c.id === vista.id)}
           onVolver={() => setVista({ tipo: "lista" })}
+          catalogo={catalogo}
+          onAddFrecuente={addFrecuente}
+          onDeleteFrecuente={deleteFrecuente}
         />
       )}
     </div>
@@ -869,9 +879,18 @@ interface DetalleProps {
   onSave: (c: Client) => Promise<void>;
   cliente: Client | undefined;
   onVolver: () => void;
+  catalogo: CatalogProduct[];
+  onAddFrecuente: (descripcion: string, precio: number) => Promise<void>;
+  onDeleteFrecuente: (productId: string) => Promise<void>;
 }
 
-function DetalleCliente({ onSave, cliente }: DetalleProps) {
+function DetalleCliente({
+  onSave,
+  cliente,
+  catalogo,
+  onAddFrecuente,
+  onDeleteFrecuente,
+}: DetalleProps) {
   const [desc, setDesc] = useState("");
   const [precio, setPrecio] = useState("");
   const [cantidad, setCantidad] = useState("1");
@@ -879,6 +898,11 @@ function DetalleCliente({ onSave, cliente }: DetalleProps) {
   const [itemAQuitar, setItemAQuitar] = useState<FiadoItem | null>(null);
   const [confirmarSaldar, setConfirmarSaldar] = useState(false);
   const [aviso, setAviso] = useState("");
+  const [editandoFrecuentes, setEditandoFrecuentes] = useState(false);
+  const [frecDesc, setFrecDesc] = useState("");
+  const [frecPrecio, setFrecPrecio] = useState("");
+  const [frecuenteAQuitar, setFrecuenteAQuitar] =
+    useState<CatalogProduct | null>(null);
 
   // El aviso de "guardado" se quita solo a los pocos segundos.
   useEffect(() => {
@@ -952,6 +976,31 @@ function DetalleCliente({ onSave, cliente }: DetalleProps) {
     });
     setMontoPago("");
     setAviso(`✅ Abono de ${fmtMoney(m)} registrado.`);
+  };
+
+  // Un toque en un frecuente llena descripción y precio del fiado.
+  const usarFrecuente = (p: CatalogProduct) => {
+    setDesc(p.descripcion);
+    setPrecio(String(p.precio));
+  };
+
+  const agregarFrecuente = async (e: FormEvent) => {
+    e.preventDefault();
+    const p = parseFloat(frecPrecio);
+    if (!frecDesc.trim() || isNaN(p) || p <= 0) return;
+    await onAddFrecuente(frecDesc.trim(), p);
+    setFrecDesc("");
+    setFrecPrecio("");
+    setAviso(`✅ "${frecDesc.trim()}" agregado a tus productos frecuentes.`);
+  };
+
+  const confirmarQuitarFrecuente = () => {
+    if (!frecuenteAQuitar) return;
+    void onDeleteFrecuente(frecuenteAQuitar.id);
+    setAviso(
+      `Producto frecuente "${frecuenteAQuitar.descripcion}" eliminado.`,
+    );
+    setFrecuenteAQuitar(null);
   };
 
   // Saldar también pasa por el modal: registra un abono por el total.
@@ -1030,6 +1079,95 @@ function DetalleCliente({ onSave, cliente }: DetalleProps) {
           />
           <Button type="submit">Añadir</Button>
         </form>
+
+        {catalogo.length > 0 && (
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-xs text-muted-foreground">
+              Frecuentes:
+            </span>
+            {catalogo.map((p) => (
+              <Button
+                key={p.id}
+                type="button"
+                variant="outline"
+                size="sm"
+                className="rounded-full px-3.5"
+                onClick={() => usarFrecuente(p)}
+              >
+                {p.descripcion} · {fmtMoney(p.precio)}
+              </Button>
+            ))}
+          </div>
+        )}
+
+        <div>
+          <Button
+            type="button"
+            variant="link"
+            size="sm"
+            className="h-auto px-0 py-0.5"
+            onClick={() => setEditandoFrecuentes(!editandoFrecuentes)}
+          >
+            {editandoFrecuentes
+              ? "Ocultar productos frecuentes"
+              : "Editar productos frecuentes"}
+          </Button>
+        </div>
+
+        {editandoFrecuentes && (
+          <div className="flex flex-col gap-3 border-t border-slate-100 pt-4">
+            {catalogo.length === 0 && (
+              <p className="text-sm text-muted-foreground">
+                Aún no tienes productos frecuentes. Agrega los que fías
+                seguido (arroz, aceite, huevos…) y aparecerán como
+                botones para llenar el fiado con un toque.
+              </p>
+            )}
+            {catalogo.map((p) => (
+              <div
+                key={p.id}
+                className="flex items-center justify-between gap-3 text-sm"
+              >
+                <span>
+                  {p.descripcion}{" "}
+                  <span className="text-muted-foreground">
+                    · {fmtMoney(p.precio)}
+                  </span>
+                </span>
+                <button
+                  type="button"
+                  className="py-0.5 text-xs font-medium text-red-600 underline-offset-2 hover:underline"
+                  onClick={() => setFrecuenteAQuitar(p)}
+                >
+                  quitar
+                </button>
+              </div>
+            ))}
+            <form
+              className="flex flex-wrap gap-2.5"
+              onSubmit={agregarFrecuente}
+            >
+              <Input
+                className="h-10 min-w-40 flex-1"
+                placeholder="Producto frecuente (ej: Arroz 1 lb)"
+                value={frecDesc}
+                onChange={(e) => setFrecDesc(e.target.value)}
+              />
+              <Input
+                className="h-10 w-24 flex-none"
+                type="number"
+                min="0"
+                step="0.01"
+                placeholder="Precio"
+                value={frecPrecio}
+                onChange={(e) => setFrecPrecio(e.target.value)}
+              />
+              <Button type="submit" size="sm" className="h-10">
+                Agregar frecuente
+              </Button>
+            </form>
+          </div>
+        )}
       </Card>
 
       <Card className="gap-2 p-6">
@@ -1144,6 +1282,16 @@ function DetalleCliente({ onSave, cliente }: DetalleProps) {
           confirmLabel="Sí, quitar"
           onConfirm={confirmarQuitarItem}
           onCancel={() => setItemAQuitar(null)}
+        />
+      )}
+
+      {frecuenteAQuitar && (
+        <ConfirmModal
+          title="¿Quitar este producto frecuente?"
+          message={`Se quitará "${frecuenteAQuitar.descripcion}" de tus productos frecuentes. Los fiados ya registrados no se tocan.`}
+          confirmLabel="Sí, quitar"
+          onConfirm={confirmarQuitarFrecuente}
+          onCancel={() => setFrecuenteAQuitar(null)}
         />
       )}
 

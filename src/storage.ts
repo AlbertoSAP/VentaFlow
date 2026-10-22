@@ -274,3 +274,58 @@ export async function deleteClientRecord(clientUid: string): Promise<void> {
   await remove(ref(database, `clientes/${clientUid}`));
   await remove(ref(database, `clienteIndex/${clientUid}`));
 }
+
+// ---------- Catálogo de productos frecuentes ----------
+/**
+ * Productos que el vendedor fía seguido, para llenar el formulario
+ * de fiado con un toque. Vive bajo el nodo del propio vendedor
+ * (vendedores/{uid}/catalogo), así las reglas ya publicadas lo
+ * cubren sin cambios: cada quien solo toca su propio nodo.
+ */
+export interface CatalogProduct {
+  id: string;
+  descripcion: string;
+  precio: number;
+}
+
+/** Catálogo del vendedor en tiempo real, ordenado por descripción */
+export function subscribeCatalog(
+  vendorUid: string,
+  cb: (products: CatalogProduct[]) => void,
+): Unsubscribe {
+  return onValue(ref(database, `vendedores/${vendorUid}/catalogo`), (snap) => {
+    const val =
+      (snap.val() as Record<
+        string,
+        { descripcion?: string; precio?: number }
+      > | null) ?? {};
+    cb(
+      Object.entries(val)
+        .map(([id, p]) => ({
+          id,
+          descripcion: p.descripcion ?? "",
+          precio: p.precio ?? 0,
+        }))
+        .sort((a, b) => a.descripcion.localeCompare(b.descripcion)),
+    );
+  });
+}
+
+/** Crea o actualiza un producto del catálogo */
+export function writeCatalogProduct(
+  vendorUid: string,
+  p: CatalogProduct,
+): Promise<void> {
+  return set(ref(database, `vendedores/${vendorUid}/catalogo/${p.id}`), {
+    descripcion: p.descripcion,
+    precio: p.precio,
+  });
+}
+
+/** Quita un producto del catálogo (los fiados ya registrados no se tocan) */
+export function deleteCatalogProduct(
+  vendorUid: string,
+  productId: string,
+): Promise<void> {
+  return remove(ref(database, `vendedores/${vendorUid}/catalogo/${productId}`));
+}
