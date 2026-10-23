@@ -201,6 +201,97 @@ export function writeVendorProfile(v: Vendor): Promise<void> {
   return set(ref(database, `vendedores/${id}`), profile);
 }
 
+// ---------- Aprobación de vendedores ----------
+/**
+ * Nadie entra a usar la app solo por registrarse: un administrador
+ * debe aprobar su cuenta. El estado vive en un nodo APARTE
+ * (`aprobaciones/{uid}`) que, según las reglas, solo un admin
+ * puede escribir — así un vendedor no puede aprobarse a sí mismo
+ * editando su propio perfil. Sin registro en ese nodo = pendiente.
+ */
+export type EstadoVendedor = "pendiente" | "aprobado" | "rechazado";
+
+/** Estado de aprobación de un vendedor, en tiempo real */
+export function subscribeEstadoVendedor(
+  vendorUid: string,
+  cb: (estado: EstadoVendedor) => void,
+): Unsubscribe {
+  return onValue(ref(database, `aprobaciones/${vendorUid}`), (snap) => {
+    const val = snap.val() as { estado?: EstadoVendedor } | null;
+    cb(val?.estado ?? "pendiente");
+  });
+}
+
+/**
+ * ¿Este usuario es administrador? El nodo `admins/{uid}` solo se
+ * puede crear desde la consola de Firebase (las reglas bloquean
+ * su escritura desde la app): es la llave maestra de aprobación.
+ */
+export async function getEsAdmin(uidAuth: string): Promise<boolean> {
+  const snap = await get(ref(database, `admins/${uidAuth}`));
+  return snap.val() === true;
+}
+
+export interface VendorConEstado extends Vendor {
+  estado: EstadoVendedor;
+}
+
+/** Todos los vendedores con su estado (solo lo puede leer un admin) */
+export function subscribeVendedoresAdmin(
+  cb: (vendedores: VendorConEstado[]) => void,
+): Unsubscribe {
+  let perfiles: Record<
+    string,
+    { name?: string; email?: string; created?: number }
+  > | null = null;
+  let estados: Record<string, { estado?: EstadoVendedor }> | null = null;
+  const emitir = () => {
+    if (!perfiles || !estados) return;
+    const perfilesOk = perfiles;
+    const estadosOk = estados;
+    cb(
+      Object.entries(perfilesOk)
+        .map(([id, v]) => ({
+          id,
+          name: v.name ?? "",
+          email: v.email ?? "",
+          created: v.created ?? 0,
+          estado: estadosOk[id]?.estado ?? ("pendiente" as EstadoVendedor),
+        }))
+        .sort((a, b) => b.created - a.created),
+    );
+  };
+  const off1 = onValue(ref(database, "vendedores"), (snap) => {
+    perfiles =
+      (snap.val() as Record<
+        string,
+        { name?: string; email?: string; created?: number }
+      > | null) ?? {};
+    emitir();
+  });
+  const off2 = onValue(ref(database, "aprobaciones"), (snap) => {
+    estados =
+      (snap.val() as Record<string, { estado?: EstadoVendedor }> | null) ??
+      {};
+    emitir();
+  });
+  return () => {
+    off1();
+    off2();
+  };
+}
+
+/** Aprueba, rechaza o revoca a un vendedor (solo lo permite un admin) */
+export function setEstadoVendedor(
+  vendorUid: string,
+  estado: EstadoVendedor,
+): Promise<void> {
+  return set(ref(database, `aprobaciones/${vendorUid}`), {
+    estado,
+    actualizado: Date.now(),
+  });
+}
+
 // ---------- Roles ----------
 /** Determina el rol de un UID: primero vendedor, si no, cliente */
 export async function getUserRole(uidAuth: string): Promise<Rol | null> {

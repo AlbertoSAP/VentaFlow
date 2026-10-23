@@ -23,6 +23,8 @@ function setAuth(partial: Record<string, unknown>) {
     user: null,
     role: null,
     resolving: false,
+    estado: "aprobado",
+    esAdmin: false,
     registerVendor: jest.fn(async () => {}),
     loginVendor: jest.fn(async () => {}),
     loginClient: jest.fn(async () => {}),
@@ -409,6 +411,68 @@ describe("vista del vendedor", () => {
     expect(saveClient).toHaveBeenCalledTimes(1);
     const guardado = (saveClient.mock.calls[0] as any[])[0];
     expect(guardado.pagos[0].monto).toBe(100); // deuda de la fixture
+  });
+});
+
+describe("aprobación de vendedores", () => {
+  it("un vendedor pendiente solo ve la pantalla de espera", () => {
+    setAuth({ ...VENDOR, estado: "pendiente" });
+    setClientsHook({ clients: [] });
+    render(<App />);
+
+    expect(screen.getByText(/Por favor espere/)).toBeInTheDocument();
+    expect(
+      screen.getByText(/su cuenta será validada/),
+    ).toBeInTheDocument();
+    // Nada de la app: ni navegación ni paneles
+    expect(
+      screen.queryByRole("button", { name: /Clientes/ }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /Dashboard/ }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("un vendedor rechazado ve el aviso de no aprobado", () => {
+    setAuth({ ...VENDOR, estado: "rechazado" });
+    setClientsHook({ clients: [] });
+    render(<App />);
+    expect(
+      screen.getByText("Tu cuenta no fue aprobada"),
+    ).toBeInTheDocument();
+  });
+
+  it("el admin entra aunque esté pendiente y aprueba solicitudes desde el panel", async () => {
+    const user = userEvent.setup();
+    __fakeDb.setData({
+      vendedores: {
+        "vendor-1": { name: "Admin", email: "admin@x.com", created: 1 },
+        v2: { name: "Nuevo Vendedor", email: "nuevo@x.com", created: 2 },
+      },
+      aprobaciones: { "vendor-1": { estado: "aprobado" } },
+    });
+    setAuth({ ...VENDOR, estado: "pendiente", esAdmin: true });
+    setClientsHook({ clients: [] });
+    render(<App />);
+
+    await user.click(
+      screen.getByRole("button", { name: /Solicitudes \(1\)/ }),
+    );
+    expect(screen.getByText("Nuevo Vendedor")).toBeInTheDocument();
+    expect(screen.getByText(/nuevo@x\.com/)).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Aprobar" }));
+    const data = __fakeDb.getData() as any;
+    expect(data.aprobaciones.v2.estado).toBe("aprobado");
+  });
+
+  it("sin ser admin no aparece la pestaña Solicitudes", () => {
+    setAuth({ ...VENDOR, estado: "aprobado", esAdmin: false });
+    setClientsHook({ clients: [] });
+    render(<App />);
+    expect(
+      screen.queryByRole("button", { name: /Solicitudes/ }),
+    ).not.toBeInTheDocument();
   });
 });
 

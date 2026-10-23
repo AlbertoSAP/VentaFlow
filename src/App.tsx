@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
-import { MessageCircle, Search } from "lucide-react";
+import { Clock, MessageCircle, Search, UserCheck } from "lucide-react";
 import {
   uid,
   fmtMoney,
@@ -11,7 +11,10 @@ import {
   whatsAppUrl,
   mensajeEstadoCuenta,
   mensajeDatosAcceso,
+  setEstadoVendedor,
   fullName,
+  type EstadoVendedor,
+  type VendorConEstado,
   subscribeOwnClient,
   type Client,
   type FiadoItem,
@@ -19,6 +22,7 @@ import {
 import { useAuth, mapAuthError } from "./hooks/useAuth.ts";
 import { useClient } from "./hooks/useClient.tsx";
 import { useCatalog } from "./hooks/useCatalog.ts";
+import { useAdminVendedores } from "./hooks/useAdmin.ts";
 import type { CatalogProduct } from "./storage.ts";
 import Dashboard, { metricas } from "./Dashboard.tsx";
 import { Button } from "@/components/ui/button";
@@ -213,8 +217,17 @@ function useRuta(): "vendedor" | "cliente" {
 }
 
 function App() {
-  const { user, role, resolving, registerVendor, loginVendor, loginClient, logout } =
-    useAuth();
+  const {
+    user,
+    role,
+    resolving,
+    estado,
+    esAdmin,
+    registerVendor,
+    loginVendor,
+    loginClient,
+    logout,
+  } = useAuth();
   const ruta = useRuta();
 
   if (resolving) {
@@ -242,7 +255,14 @@ function App() {
   }
 
   if (role === "vendedor") {
-    return <VendorApp vendorUid={user.uid} onLogout={logout} />;
+    return (
+      <VendorApp
+        vendorUid={user.uid}
+        onLogout={logout}
+        estado={estado}
+        esAdmin={esAdmin}
+      />
+    );
   }
 
   if (role === "cliente") {
@@ -468,11 +488,16 @@ function ClientAuthScreen({ onLoginClient }: ClientAuthProps) {
 /* ==================== Vista del vendedor ==================== */
 
 type Vista =
-  { tipo: "lista" } | { tipo: "detalle"; id: string } | { tipo: "dashboard" };
+  | { tipo: "lista" }
+  | { tipo: "detalle"; id: string }
+  | { tipo: "dashboard" }
+  | { tipo: "solicitudes" };
 
 interface VendorProps {
   vendorUid: string;
   onLogout: () => Promise<void>;
+  estado: EstadoVendedor | null;
+  esAdmin: boolean;
 }
 
 function navBtnCls(active: boolean) {
@@ -484,7 +509,7 @@ function navBtnCls(active: boolean) {
   );
 }
 
-function VendorApp({ vendorUid, onLogout }: VendorProps) {
+function VendorApp({ vendorUid, onLogout, estado, esAdmin }: VendorProps) {
   const { clients, loading, createClient, deleteClient, saveClient } =
     useClient(vendorUid);
   const {
@@ -492,8 +517,24 @@ function VendorApp({ vendorUid, onLogout }: VendorProps) {
     addProduct: addFrecuente,
     deleteProduct: deleteFrecuente,
   } = useCatalog(vendorUid);
+  const vendedoresAdmin = useAdminVendedores(esAdmin);
   const [vista, setVista] = useState<Vista>({ tipo: "dashboard" });
   const [busqueda, setBusqueda] = useState("");
+
+  // Compuerta de aprobación: sin el visto bueno de un admin (y sin
+  // ser admin), el vendedor solo ve la pantalla de espera.
+  if (!esAdmin && estado !== "aprobado") {
+    return (
+      <PantallaEspera
+        estado={estado ?? "pendiente"}
+        onLogout={onLogout}
+      />
+    );
+  }
+
+  const pendientesCount = vendedoresAdmin.filter(
+    (v) => v.estado === "pendiente" && v.id !== vendorUid,
+  ).length;
 
   const clientesFiltrados = useMemo(() => {
     const q = busqueda.trim().toLowerCase();
@@ -526,6 +567,17 @@ function VendorApp({ vendorUid, onLogout }: VendorProps) {
             {m.clientesConDeuda > 0 ? ` (${m.clientesConDeuda})` : ""}
           </button>
 
+          {esAdmin && (
+            <button
+              type="button"
+              className={navBtnCls(vista.tipo === "solicitudes")}
+              onClick={() => setVista({ tipo: "solicitudes" })}
+            >
+              Solicitudes
+              {pendientesCount > 0 ? ` (${pendientesCount})` : ""}
+            </button>
+          )}
+
           <button
             type="button"
             className={navBtnCls(false)}
@@ -555,6 +607,12 @@ function VendorApp({ vendorUid, onLogout }: VendorProps) {
           totalPorCobrar={totalPorCobrar}
           onAbrir={(id: string) => setVista({ tipo: "detalle", id })}
         />
+      ) : vista.tipo === "solicitudes" ? (
+        <PanelSolicitudes
+          vendedores={vendedoresAdmin}
+          miUid={vendorUid}
+          onSetEstado={(uid, e) => void setEstadoVendedor(uid, e)}
+        />
       ) : (
         <DetalleCliente
           onSave={saveClient}
@@ -566,6 +624,183 @@ function VendorApp({ vendorUid, onLogout }: VendorProps) {
         />
       )}
     </div>
+  );
+}
+
+/* ======== Pantalla de espera: vendedor aún no aprobado ======== */
+
+function PantallaEspera({
+  estado,
+  onLogout,
+}: {
+  estado: EstadoVendedor;
+  onLogout: () => Promise<void>;
+}) {
+  const rechazado = estado === "rechazado";
+  return (
+    <div className="min-h-screen">
+      <Topbar>
+        <Button variant="outline" size="sm" onClick={() => void onLogout()}>
+          Salir
+        </Button>
+      </Topbar>
+      <Wrap narrow>
+        <Card className="items-center gap-3 p-8 text-center">
+          <span className="grid size-14 place-items-center rounded-full bg-amber-50 text-amber-600 [&_svg]:size-7">
+            {rechazado ? <UserCheck /> : <Clock />}
+          </span>
+          <h2 className="text-xl font-bold tracking-tight">
+            {rechazado
+              ? "Tu cuenta no fue aprobada"
+              : "Tu cuenta está en revisión"}
+          </h2>
+          <p className="text-sm leading-relaxed text-muted-foreground">
+            {rechazado
+              ? "Tu solicitud de acceso a VentaFlow no fue aprobada. Si creés que se trata de un error, contactá al administrador de la aplicación."
+              : "Por favor espere, su cuenta será validada y posteriormente podrá comenzar a hacer uso de ella. Cuando sea aprobada, entrá de nuevo con tu correo y contraseña: el acceso se libera automáticamente."}
+          </p>
+        </Card>
+      </Wrap>
+    </div>
+  );
+}
+
+/* ======== Panel del administrador: solicitudes de vendedores ======== */
+
+function PanelSolicitudes({
+  vendedores,
+  miUid,
+  onSetEstado,
+}: {
+  vendedores: VendorConEstado[];
+  miUid: string;
+  onSetEstado: (uid: string, estado: EstadoVendedor) => void;
+}) {
+  const pendientes = vendedores.filter(
+    (v) => v.estado === "pendiente" && v.id !== miUid,
+  );
+  const aprobados = vendedores.filter(
+    (v) => v.estado === "aprobado" && v.id !== miUid,
+  );
+  const rechazados = vendedores.filter(
+    (v) => v.estado === "rechazado" && v.id !== miUid,
+  );
+
+  const fila = (v: VendorConEstado, acciones: ReactNode) => (
+    <div
+      key={v.id}
+      className="flex flex-wrap items-center justify-between gap-3 rounded-xl border bg-card p-4 shadow-sm"
+    >
+      <div className="flex min-w-0 items-center gap-3.5">
+        <span className="grid size-11 shrink-0 place-items-center rounded-full bg-blue-50 text-sm font-bold text-primary">
+          {iniciales(v.name || v.email)}
+        </span>
+        <div className="min-w-0">
+          <strong className="block truncate">
+            {v.name || "(sin nombre)"}
+          </strong>
+          <div className="truncate text-xs text-muted-foreground">
+            {v.email}
+            {v.created > 0 ? ` · Registrado: ${fmtFecha(v.created)}` : ""}
+          </div>
+        </div>
+      </div>
+      <div className="flex shrink-0 gap-2">{acciones}</div>
+    </div>
+  );
+
+  return (
+    <Wrap wide>
+      <div>
+        <h2 className="text-2xl font-bold tracking-tight">
+          Solicitudes de vendedores
+        </h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Solo los vendedores que aprobés aquí pueden comenzar a usar
+          la aplicación. El resto ve una pantalla de espera.
+        </p>
+      </div>
+
+      <h3 className="text-base font-semibold tracking-tight">
+        Pendientes ({pendientes.length})
+      </h3>
+      {pendientes.length === 0 ? (
+        <p className="text-sm text-muted-foreground">
+          No hay solicitudes pendientes.
+        </p>
+      ) : (
+        <div className="flex flex-col gap-3">
+          {pendientes.map((v) =>
+            fila(
+              v,
+              <>
+                <Button
+                  variant="success"
+                  size="sm"
+                  onClick={() => onSetEstado(v.id, "aprobado")}
+                >
+                  Aprobar
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="text-red-600 hover:text-red-700"
+                  onClick={() => onSetEstado(v.id, "rechazado")}
+                >
+                  Rechazar
+                </Button>
+              </>,
+            ),
+          )}
+        </div>
+      )}
+
+      <h3 className="text-base font-semibold tracking-tight">
+        Aprobados ({aprobados.length})
+      </h3>
+      {aprobados.length === 0 ? (
+        <p className="text-sm text-muted-foreground">
+          Todavía no aprobaste a ningún vendedor.
+        </p>
+      ) : (
+        <div className="flex flex-col gap-3">
+          {aprobados.map((v) =>
+            fila(
+              v,
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => onSetEstado(v.id, "pendiente")}
+              >
+                Revocar acceso
+              </Button>,
+            ),
+          )}
+        </div>
+      )}
+
+      {rechazados.length > 0 && (
+        <>
+          <h3 className="text-base font-semibold tracking-tight">
+            Rechazados ({rechazados.length})
+          </h3>
+          <div className="flex flex-col gap-3">
+            {rechazados.map((v) =>
+              fila(
+                v,
+                <Button
+                  variant="success"
+                  size="sm"
+                  onClick={() => onSetEstado(v.id, "aprobado")}
+                >
+                  Aprobar
+                </Button>,
+              ),
+            )}
+          </div>
+        </>
+      )}
+    </Wrap>
   );
 }
 

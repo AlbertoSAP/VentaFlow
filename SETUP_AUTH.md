@@ -7,6 +7,43 @@
 > (`vite-plugin-pwa`, modo autoUpdate: cada despliegue nuevo se
 > aplica solo al reabrir la app).
 
+> **Accesos separados por ruta:** `/vendedor` es la entrada de
+> vendedores (login + registro) y `/cliente` (o la raíz) la de
+> clientes, que solo muestra SU formulario. A cada cliente se le
+> comparte el enlace `/cliente`; el de vendedores no se comparte.
+
+## Aprobación de vendedores (módulo de permisos)
+
+Registrarse ya no basta para usar la app: todo vendedor nuevo
+queda **pendiente** viendo solo una pantalla de espera («Por favor
+espere, su cuenta será validada…») hasta que un administrador lo
+apruebe desde la pestaña **Solicitudes** de la propia app.
+
+Pasos de consola (una sola vez):
+
+1. **Republicar las reglas** de `database.rules.json` en Realtime
+   Database → Reglas (traen los nodos nuevos `admins` y
+   `aprobaciones`).
+2. **Marcar tu cuenta como administradora:** en Realtime Database
+   creá el nodo `admins` y dentro, tu UID de vendedor (está en
+   Authentication → Users) con valor `true`:
+   `admins/{tu-uid}: true`. Ese nodo NO se puede escribir desde la
+   app (las reglas lo bloquean): solo desde la consola.
+3. Entrá a la app con tu cuenta: como admin, saltás la espera y
+   ves la pestaña **Solicitudes**, desde donde aprobás, rechazás o
+   revocás vendedores. Tu propia cuenta también podés aprobarla
+   ahí mismo (o queda liberada por ser admin).
+
+Notas:
+
+- El estado vive en `aprobaciones/{uid}` y **solo un admin puede
+  escribirlo** (reglas): un vendedor no puede aprobarse a sí mismo
+  tocando su perfil.
+- Los vendedores que ya existían antes de este módulo aparecen
+  como **pendientes**: aprobalos desde el panel (o, si preferís
+  liberarlos a todos de una vez, creá en la consola
+  `aprobaciones/{uid}` con `{"estado": "aprobado"}` para cada uno).
+
 La app ya trae el código de autenticación con 2 roles. Para que funcione
 en el proyecto de Firebase **app-venta-f07d9** faltan 2 pasos en la
 consola (no se pueden hacer desde el código):
