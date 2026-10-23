@@ -1,4 +1,4 @@
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, act } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import App, { ConfirmModal } from "../src/App.tsx";
 import { useAuth } from "../src/hooks/useAuth.ts";
@@ -62,6 +62,23 @@ describe("puerta de acceso (App)", () => {
     setAuth({ resolving: true });
     render(<App />);
     expect(screen.getByText("Conectando…")).toBeInTheDocument();
+  });
+
+  it("mantener presionado el logo en el acceso del cliente lleva al de vendedor (app instalada)", async () => {
+    setAuth({});
+    setClientsHook({ clients: [] });
+    render(<App />);
+    expect(
+      screen.getByPlaceholderText("Tu número de teléfono *"),
+    ).toBeInTheDocument();
+
+    fireEvent.pointerDown(screen.getByTestId("logo"));
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 1100));
+    });
+
+    expect(screen.getByPlaceholderText("Tu correo *")).toBeInTheDocument();
+    expect(window.location.pathname).toBe("/vendedor");
   });
 
   it("sin sesión, la ruta /vendedor muestra el login de vendedor y permite entrar", async () => {
