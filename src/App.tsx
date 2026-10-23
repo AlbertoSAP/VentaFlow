@@ -1,6 +1,12 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { Clock, Menu, MessageCircle, Search, UserCheck, X } from "lucide-react";
 import {
+  BrowserRouter,
+  Route,
+  Routes,
+  useNavigate,
+} from "react-router-dom";
+import {
   uid,
   fmtMoney,
   fmtFecha,
@@ -256,27 +262,22 @@ function iniciales(nombre: string) {
 }
 
 /**
- * Ruta de acceso: /vendedor es la entrada de vendedores (login +
- * registro); cualquier otra ruta —incluida la raíz— es la entrada
- * de clientes, que SOLO ven su propio formulario. Así el cliente
- * nunca ve el acceso ni el registro de un vendedor: a cada quien
- * se le comparte su enlace.
+ * Enrutado con React Router: /vendedor es la entrada de vendedores
+ * (login + registro); cualquier otra ruta —incluida la raíz— es la
+ * entrada de clientes, que SOLO ven su propio formulario. Así el
+ * cliente nunca ve el acceso ni el registro de un vendedor: a cada
+ * quien se le comparte su enlace. Con la sesión iniciada manda el
+ * rol, no la ruta: el vendedor ve su panel y el cliente su estado.
  */
-function useRuta(): "vendedor" | "cliente" {
-  const leer = (): "vendedor" | "cliente" =>
-    window.location.pathname.startsWith("/vendedor")
-      ? "vendedor"
-      : "cliente";
-  const [ruta, setRuta] = useState<"vendedor" | "cliente">(leer);
-  useEffect(() => {
-    const onPop = () => setRuta(leer());
-    window.addEventListener("popstate", onPop);
-    return () => window.removeEventListener("popstate", onPop);
-  }, []);
-  return ruta;
+function App() {
+  return (
+    <BrowserRouter>
+      <Acceso />
+    </BrowserRouter>
+  );
 }
 
-function App() {
+function Acceso() {
   const {
     user,
     role,
@@ -288,7 +289,7 @@ function App() {
     loginClient,
     logout,
   } = useAuth();
-  const ruta = useRuta();
+  const navigate = useNavigate();
 
   if (resolving) {
     return (
@@ -303,25 +304,28 @@ function App() {
     );
   }
 
-  // Salto a la ruta de vendedores sin recargar (lo usa el gesto
-  // oculto del logo en la pantalla del cliente): pushState +
-  // popstate para que useRuta relea la ruta.
-  const irAVendedor = () => {
-    window.history.pushState(null, "", "/vendedor");
-    window.dispatchEvent(new PopStateEvent("popstate"));
-  };
-
   if (!user) {
-    return ruta === "vendedor" ? (
-      <VendorAuthScreen
-        onLoginVendor={loginVendor}
-        onRegisterVendor={registerVendor}
-      />
-    ) : (
-      <ClientAuthScreen
-        onLoginClient={loginClient}
-        onIrVendedor={irAVendedor}
-      />
+    return (
+      <Routes>
+        <Route
+          path="/vendedor"
+          element={
+            <VendorAuthScreen
+              onLoginVendor={loginVendor}
+              onRegisterVendor={registerVendor}
+            />
+          }
+        />
+        <Route
+          path="*"
+          element={
+            <ClientAuthScreen
+              onLoginClient={loginClient}
+              onIrVendedor={() => navigate("/vendedor")}
+            />
+          }
+        />
+      </Routes>
     );
   }
 
