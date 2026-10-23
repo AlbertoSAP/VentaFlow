@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
-import { Clock, MessageCircle, Search, UserCheck } from "lucide-react";
+import { Clock, Menu, MessageCircle, Search, UserCheck, X } from "lucide-react";
 import {
   uid,
   fmtMoney,
@@ -50,12 +50,43 @@ function Logo() {
   );
 }
 
-function Topbar({ children }: { children?: ReactNode }) {
+function Topbar({
+  children,
+  menu = false,
+}: {
+  children?: ReactNode;
+  /** true = la navegación se colapsa en hamburguesa en móvil */
+  menu?: boolean;
+}) {
+  const [abierto, setAbierto] = useState(false);
   return (
     <header className="sticky top-0 z-40 border-b border-slate-200/80 bg-white/85 backdrop-blur">
-      <div className="mx-auto flex h-16 w-full max-w-5xl items-center justify-between gap-3 px-4">
+      <div className="relative mx-auto flex h-16 w-full max-w-5xl items-center justify-between gap-3 px-4">
         <Logo />
-        {children}
+        {menu ? (
+          <>
+            <button
+              type="button"
+              className="grid size-10 place-items-center rounded-lg text-slate-600 transition hover:bg-slate-100 sm:hidden [&_svg]:size-5.5"
+              aria-label={abierto ? "Cerrar menú" : "Abrir menú"}
+              aria-expanded={abierto}
+              onClick={() => setAbierto(!abierto)}
+            >
+              {abierto ? <X /> : <Menu />}
+            </button>
+            <nav
+              onClick={() => setAbierto(false)}
+              className={cn(
+                "absolute inset-x-4 top-full z-50 mt-2 flex-col gap-1 rounded-xl border border-slate-200 bg-white p-2 shadow-xl max-sm:[&>button]:text-left sm:static sm:mt-0 sm:flex sm:flex-row sm:items-center sm:gap-1.5 sm:rounded-none sm:border-0 sm:bg-transparent sm:p-0 sm:shadow-none",
+                abierto ? "flex" : "hidden sm:flex",
+              )}
+            >
+              {children}
+            </nav>
+          </>
+        ) : (
+          children
+        )}
       </div>
     </header>
   );
@@ -552,8 +583,7 @@ function VendorApp({ vendorUid, onLogout, estado, esAdmin }: VendorProps) {
 
   return (
     <div className="min-h-screen">
-      <Topbar>
-        <nav className="flex items-center gap-1.5">
+      <Topbar menu>
           <button
             type="button"
             className={navBtnCls(vista.tipo === "dashboard")}
@@ -589,7 +619,6 @@ function VendorApp({ vendorUid, onLogout, estado, esAdmin }: VendorProps) {
           >
             Salir
           </button>
-        </nav>
       </Topbar>
 
       {loading ? (

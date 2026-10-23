@@ -480,6 +480,23 @@ describe("aprobación de vendedores", () => {
     expect(data.aprobaciones.v2.estado).toBe("aprobado");
   });
 
+  it("el menú hamburguesa abre el panel móvil y se cierra al navegar", async () => {
+    const user = userEvent.setup();
+    setAuth(VENDOR);
+    setClientsHook({ clients: [] });
+    render(<App />);
+
+    await user.click(screen.getByRole("button", { name: "Abrir menú" }));
+    expect(
+      screen.getByRole("button", { name: "Cerrar menú" }),
+    ).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /Clientes/ }));
+    expect(
+      screen.getByRole("button", { name: "Abrir menú" }),
+    ).toBeInTheDocument();
+  });
+
   it("sin ser admin no aparece la pestaña Solicitudes", () => {
     setAuth({ ...VENDOR, estado: "aprobado", esAdmin: false });
     setClientsHook({ clients: [] });
