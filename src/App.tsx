@@ -191,9 +191,31 @@ function iniciales(nombre: string) {
     .join("");
 }
 
+/**
+ * Ruta de acceso: /vendedor es la entrada de vendedores (login +
+ * registro); cualquier otra ruta —incluida la raíz— es la entrada
+ * de clientes, que SOLO ven su propio formulario. Así el cliente
+ * nunca ve el acceso ni el registro de un vendedor: a cada quien
+ * se le comparte su enlace.
+ */
+function useRuta(): "vendedor" | "cliente" {
+  const leer = (): "vendedor" | "cliente" =>
+    window.location.pathname.startsWith("/vendedor")
+      ? "vendedor"
+      : "cliente";
+  const [ruta, setRuta] = useState<"vendedor" | "cliente">(leer);
+  useEffect(() => {
+    const onPop = () => setRuta(leer());
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, []);
+  return ruta;
+}
+
 function App() {
   const { user, role, resolving, registerVendor, loginVendor, loginClient, logout } =
     useAuth();
+  const ruta = useRuta();
 
   if (resolving) {
     return (
@@ -209,12 +231,13 @@ function App() {
   }
 
   if (!user) {
-    return (
-      <AuthScreen
+    return ruta === "vendedor" ? (
+      <VendorAuthScreen
         onLoginVendor={loginVendor}
-        onLoginClient={loginClient}
         onRegisterVendor={registerVendor}
       />
+    ) : (
+      <ClientAuthScreen onLoginClient={loginClient} />
     );
   }
 
@@ -245,11 +268,10 @@ function App() {
   );
 }
 
-/* ==================== Pantalla de acceso ==================== */
+/* ============ Pantalla de acceso del VENDEDOR (/vendedor) ============ */
 
-interface AuthProps {
+interface VendorAuthProps {
   onLoginVendor: (email: string, password: string) => Promise<void>;
-  onLoginClient: (telephone: string, password: string) => Promise<void>;
   onRegisterVendor: (
     name: string,
     email: string,
@@ -257,12 +279,10 @@ interface AuthProps {
   ) => Promise<void>;
 }
 
-function AuthScreen({ onLoginVendor, onLoginClient, onRegisterVendor }: AuthProps) {
+function VendorAuthScreen({ onLoginVendor, onRegisterVendor }: VendorAuthProps) {
   const [mode, setMode] = useState<"login" | "register">("login");
-  const [loginAs, setLoginAs] = useState<"vendedor" | "cliente">("vendedor");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
-  const [telephone, setTelephone] = useState("");
   const [password, setPassword] = useState("");
   const [showPw, setShowPw] = useState(false);
   const [error, setError] = useState("");
@@ -275,10 +295,8 @@ function AuthScreen({ onLoginVendor, onLoginClient, onRegisterVendor }: AuthProp
     try {
       if (mode === "register") {
         await onRegisterVendor(name, email, password);
-      } else if (loginAs === "vendedor") {
-        await onLoginVendor(email, password);
       } else {
-        await onLoginClient(telephone, password);
+        await onLoginVendor(email, password);
       }
     } catch (err) {
       setError(mapAuthError(err));
@@ -323,88 +341,40 @@ function AuthScreen({ onLoginVendor, onLoginClient, onRegisterVendor }: AuthProp
 
           <form className="flex flex-col gap-4" onSubmit={submit}>
             {mode === "register" && (
-              <>
-                <Input
-                  placeholder="Tu nombre *"
-                  autoComplete="name"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                />
-                <Input
-                  type="email"
-                  placeholder="Tu correo *"
-                  autoComplete="email"
-                  inputMode="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                />
-                <Input
-                  type={showPw ? "text" : "password"}
-                  placeholder="Contraseña (mín. 6 caracteres) *"
-                  autoComplete="new-password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                />
-                <ShowPwButton show={showPw} onToggle={() => setShowPw(!showPw)} />
-                <p className="text-xs leading-relaxed text-muted-foreground">
-                  El registro es solo para vendedores. Las cuentas de
-                  cliente las crea su vendedor desde la app.
-                </p>
-              </>
+              <Input
+                placeholder="Tu nombre *"
+                autoComplete="name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+              />
             )}
-
-            {mode === "login" && (
-              <>
-                <Seg>
-                  <button
-                    type="button"
-                    className={segBtnCls(loginAs === "vendedor")}
-                    onClick={() => setLoginAs("vendedor")}
-                  >
-                    Soy vendedor
-                  </button>
-                  <button
-                    type="button"
-                    className={segBtnCls(loginAs === "cliente")}
-                    onClick={() => setLoginAs("cliente")}
-                  >
-                    Soy cliente
-                  </button>
-                </Seg>
-
-                {loginAs === "vendedor" ? (
-                  <Input
-                    type="email"
-                    placeholder="Tu correo *"
-                    autoComplete="email"
-                    inputMode="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                  />
-                ) : (
-                  <>
-                    <Input
-                      placeholder="Tu número de teléfono *"
-                      inputMode="tel"
-                      autoComplete="tel"
-                      value={telephone}
-                      onChange={(e) => setTelephone(e.target.value)}
-                    />
-                    <p className="text-xs leading-relaxed text-muted-foreground">
-                      Entrás con el teléfono que te registró tu vendedor y
-                      la contraseña que te entregó.
-                    </p>
-                  </>
-                )}
-                <Input
-                  type={showPw ? "text" : "password"}
-                  placeholder="Contraseña *"
-                  autoComplete="current-password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                />
-                <ShowPwButton show={showPw} onToggle={() => setShowPw(!showPw)} />
-              </>
+            <Input
+              type="email"
+              placeholder="Tu correo *"
+              autoComplete="email"
+              inputMode="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+            />
+            <Input
+              type={showPw ? "text" : "password"}
+              placeholder={
+                mode === "register"
+                  ? "Contraseña (mín. 6 caracteres) *"
+                  : "Contraseña *"
+              }
+              autoComplete={
+                mode === "register" ? "new-password" : "current-password"
+              }
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+            />
+            <ShowPwButton show={showPw} onToggle={() => setShowPw(!showPw)} />
+            {mode === "register" && (
+              <p className="text-xs leading-relaxed text-muted-foreground">
+                El registro es solo para vendedores. Las cuentas de
+                cliente las crea su vendedor desde la app.
+              </p>
             )}
 
             {error && <ErrorMsg>{error}</ErrorMsg>}
@@ -415,6 +385,78 @@ function AuthScreen({ onLoginVendor, onLoginClient, onRegisterVendor }: AuthProp
                 : mode === "register"
                   ? "Crear mi cuenta"
                   : "Entrar"}
+            </Button>
+          </form>
+        </Card>
+      </Wrap>
+    </div>
+  );
+}
+
+/* ============ Pantalla de acceso del CLIENTE (/cliente) ============ */
+/* Solo su formulario: aquí no existe registro ni acceso de vendedor. */
+
+interface ClientAuthProps {
+  onLoginClient: (telephone: string, password: string) => Promise<void>;
+}
+
+function ClientAuthScreen({ onLoginClient }: ClientAuthProps) {
+  const [telephone, setTelephone] = useState("");
+  const [password, setPassword] = useState("");
+  const [showPw, setShowPw] = useState(false);
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  const submit = async (e: FormEvent) => {
+    e.preventDefault();
+    setError("");
+    setBusy(true);
+    try {
+      await onLoginClient(telephone, password);
+    } catch (err) {
+      setError(mapAuthError(err));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen">
+      <Topbar />
+
+      <Wrap narrow>
+        <div className="pt-2 text-center">
+          <h2 className="text-2xl font-bold tracking-tight">
+            Consulta tu estado de cuenta
+          </h2>
+          <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+            Entrá con el número de teléfono que te registró tu vendedor
+            y la contraseña que te entregó.
+          </p>
+        </div>
+
+        <Card className="gap-5 p-6">
+          <form className="flex flex-col gap-4" onSubmit={submit}>
+            <Input
+              placeholder="Tu número de teléfono *"
+              inputMode="tel"
+              autoComplete="tel"
+              value={telephone}
+              onChange={(e) => setTelephone(e.target.value)}
+            />
+            <Input
+              type={showPw ? "text" : "password"}
+              placeholder="Contraseña *"
+              autoComplete="current-password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+            />
+            <ShowPwButton show={showPw} onToggle={() => setShowPw(!showPw)} />
+
+            {error && <ErrorMsg>{error}</ErrorMsg>}
+
+            <Button className="w-full" type="submit" disabled={busy}>
+              {busy ? "Espera…" : "Entrar"}
             </Button>
           </form>
         </Card>

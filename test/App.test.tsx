@@ -47,7 +47,13 @@ const VENDOR = { user: { uid: "vendor-1" }, role: "vendedor" };
 beforeEach(() => {
   jest.clearAllMocks();
   __fakeDb.reset();
+  window.history.pushState({}, "", "/");
 });
+
+/** La puerta de acceso depende de la ruta: /vendedor o /cliente */
+function irA(ruta: string) {
+  window.history.pushState({}, "", ruta);
+}
 
 describe("puerta de acceso (App)", () => {
   it("muestra pantalla de carga mientras resuelve la sesión", () => {
@@ -56,10 +62,11 @@ describe("puerta de acceso (App)", () => {
     expect(screen.getByText("Conectando…")).toBeInTheDocument();
   });
 
-  it("sin sesión muestra el login de vendedor y permite entrar", async () => {
+  it("sin sesión, la ruta /vendedor muestra el login de vendedor y permite entrar", async () => {
     const user = userEvent.setup();
     const loginVendor = jest.fn(async () => {});
     setAuth({ loginVendor });
+    irA("/vendedor");
     render(<App />);
 
     await user.type(screen.getByPlaceholderText("Tu correo *"), "juan@x.com");
@@ -69,13 +76,24 @@ describe("puerta de acceso (App)", () => {
     expect(loginVendor).toHaveBeenCalledWith("juan@x.com", "secreto");
   });
 
-  it("el cliente entra con su teléfono", async () => {
+  it("en la ruta de clientes, el cliente entra con su teléfono y NO ve nada de vendedores", async () => {
     const user = userEvent.setup();
     const loginClient = jest.fn(async () => {});
     setAuth({ loginClient });
+    irA("/cliente");
     render(<App />);
 
-    await user.click(screen.getByRole("button", { name: "Soy cliente" }));
+    // Ni registro, ni login de vendedor, ni su formulario de correo:
+    expect(
+      screen.queryByRole("button", { name: "Crear cuenta de vendedor" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByPlaceholderText("Tu correo *"),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByPlaceholderText("Tu nombre *"),
+    ).not.toBeInTheDocument();
+
     await user.type(
       screen.getByPlaceholderText("Tu número de teléfono *"),
       "88887777",
@@ -86,10 +104,22 @@ describe("puerta de acceso (App)", () => {
     expect(loginClient).toHaveBeenCalledWith("88887777", "temporal");
   });
 
+  it("la raíz de la app también es la entrada de clientes", () => {
+    setAuth({});
+    render(<App />);
+    expect(
+      screen.getByPlaceholderText("Tu número de teléfono *"),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByPlaceholderText("Tu correo *"),
+    ).not.toBeInTheDocument();
+  });
+
   it("el registro crea la cuenta de vendedor", async () => {
     const user = userEvent.setup();
     const registerVendor = jest.fn(async () => {});
     setAuth({ registerVendor });
+    irA("/vendedor");
     render(<App />);
 
     await user.click(
@@ -471,8 +501,9 @@ describe("usabilidad", () => {
     expect(input.type).toBe("password");
   });
 
-  it("la pantalla de acceso explica para qué sirve la app", () => {
+  it("la pantalla de acceso del vendedor explica para qué sirve la app", () => {
     setAuth({});
+    irA("/vendedor");
     render(<App />);
     expect(screen.getByText(/Lleva tus fiados sin papel/)).toBeInTheDocument();
   });
