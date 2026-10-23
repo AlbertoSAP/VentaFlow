@@ -141,3 +141,23 @@ Esos datos quedan intactos en la base, pero fuera del nuevo modelo:
 para migrarlos habría que asignarles un vendedor y re-crearlos como
 `clientes/{uid}` con cuentas Auth. Si eran datos de prueba, se pueden
 ignorar o borrar el nodo `fiados` desde la consola.
+
+## Acceso de vendedor desde la app instalada (PWA)
+
+La app instalada siempre abre en la raíz (la entrada del cliente),
+sin barra de direcciones para escribir `/vendedor`. Dos salidas
+que no exponen nada al cliente:
+
+1. **Atajo del icono (Android):** mantener presionado el icono de
+   VentaFlow muestra «Acceso vendedor», que abre directo
+   `/vendedor`. Se declara en el manifiesto (`shortcuts`); como el
+   manifiesto se captura al instalar, hay que desinstalar y volver
+   a instalar la app para que aparezca.
+2. **Gesto oculto:** en la pantalla del cliente, mantener
+   presionado el logo «VF» por 1 segundo salta al acceso de
+   vendedores. Funciona en cualquier teléfono y llega con la
+   actualización automática, sin reinstalar.
+
+Una vez iniciada la sesión de vendedor, la app abre directo en el
+panel aunque arranque en la raíz: el rol sale de la sesión, no de
+la ruta. El gesto solo hace falta para iniciar sesión.

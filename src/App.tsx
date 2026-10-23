@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { Clock, Menu, MessageCircle, Search, UserCheck, X } from "lucide-react";
 import {
   uid,
@@ -53,16 +53,45 @@ function Logo() {
 function Topbar({
   children,
   menu = false,
+  onLogoPress,
 }: {
   children?: ReactNode;
   /** true = la navegación se colapsa en hamburguesa en móvil */
   menu?: boolean;
+  /** gesto oculto: mantener presionado el logo ~1 s (acceso vendedor
+   *  desde la app instalada, que siempre abre en la ruta cliente) */
+  onLogoPress?: () => void;
 }) {
   const [abierto, setAbierto] = useState(false);
+  const pressTimer = useRef<number | null>(null);
+  const cancelPress = () => {
+    if (pressTimer.current !== null) {
+      window.clearTimeout(pressTimer.current);
+      pressTimer.current = null;
+    }
+  };
+  const startPress = () => {
+    if (!onLogoPress) return;
+    cancelPress();
+    pressTimer.current = window.setTimeout(onLogoPress, 900);
+  };
   return (
     <header className="sticky top-0 z-40 border-b border-slate-200/80 bg-white/85 backdrop-blur">
       <div className="relative mx-auto flex h-16 w-full max-w-5xl items-center justify-between gap-3 px-4">
-        <Logo />
+        {onLogoPress ? (
+          <span
+            data-testid="logo"
+            className="select-none [-webkit-touch-callout:none]"
+            onPointerDown={startPress}
+            onPointerUp={cancelPress}
+            onPointerLeave={cancelPress}
+            onContextMenu={(e) => e.preventDefault()}
+          >
+            <Logo />
+          </span>
+        ) : (
+          <Logo />
+        )}
         {menu ? (
           <>
             <button
@@ -274,6 +303,14 @@ function App() {
     );
   }
 
+  // Salto a la ruta de vendedores sin recargar (lo usa el gesto
+  // oculto del logo en la pantalla del cliente): pushState +
+  // popstate para que useRuta relea la ruta.
+  const irAVendedor = () => {
+    window.history.pushState(null, "", "/vendedor");
+    window.dispatchEvent(new PopStateEvent("popstate"));
+  };
+
   if (!user) {
     return ruta === "vendedor" ? (
       <VendorAuthScreen
@@ -281,7 +318,10 @@ function App() {
         onRegisterVendor={registerVendor}
       />
     ) : (
-      <ClientAuthScreen onLoginClient={loginClient} />
+      <ClientAuthScreen
+        onLoginClient={loginClient}
+        onIrVendedor={irAVendedor}
+      />
     );
   }
 
@@ -330,7 +370,10 @@ interface VendorAuthProps {
   ) => Promise<void>;
 }
 
-function VendorAuthScreen({ onLoginVendor, onRegisterVendor }: VendorAuthProps) {
+function VendorAuthScreen({
+  onLoginVendor,
+  onRegisterVendor,
+}: VendorAuthProps) {
   const [mode, setMode] = useState<"login" | "register">("login");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -449,9 +492,10 @@ function VendorAuthScreen({ onLoginVendor, onRegisterVendor }: VendorAuthProps) 
 
 interface ClientAuthProps {
   onLoginClient: (telephone: string, password: string) => Promise<void>;
+  onIrVendedor: () => void;
 }
 
-function ClientAuthScreen({ onLoginClient }: ClientAuthProps) {
+function ClientAuthScreen({ onLoginClient, onIrVendedor }: ClientAuthProps) {
   const [telephone, setTelephone] = useState("");
   const [password, setPassword] = useState("");
   const [showPw, setShowPw] = useState(false);
@@ -473,7 +517,7 @@ function ClientAuthScreen({ onLoginClient }: ClientAuthProps) {
 
   return (
     <div className="min-h-screen">
-      <Topbar />
+      <Topbar onLogoPress={onIrVendedor} />
 
       <Wrap narrow>
         <div className="pt-2 text-center">

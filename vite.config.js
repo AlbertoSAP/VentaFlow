@@ -22,6 +22,24 @@ export default defineConfig({
         display: 'standalone',
         start_url: '/',
         scope: '/',
+        // Atajo al mantener presionado el icono de la app instalada
+        // (Android): abre directo el acceso de vendedores, ya que la
+        // app instalada siempre arranca en la ruta del cliente.
+        shortcuts: [
+          {
+            name: 'Acceso vendedor',
+            short_name: 'Vendedor',
+            description: 'Entrar a VentaFlow como vendedor',
+            url: '/vendedor',
+            icons: [
+              {
+                src: 'icons/icon-192.png',
+                sizes: '192x192',
+                type: 'image/png',
+              },
+            ],
+          },
+        ],
         icons: [
           { src: 'icons/icon-192.png', sizes: '192x192', type: 'image/png' },
           { src: 'icons/icon-512.png', sizes: '512x512', type: 'image/png' },
