@@ -520,17 +520,9 @@ function VendorApp({ vendorUid, onLogout, estado, esAdmin }: VendorProps) {
   const vendedoresAdmin = useAdminVendedores(esAdmin);
   const [vista, setVista] = useState<Vista>({ tipo: "dashboard" });
   const [busqueda, setBusqueda] = useState("");
-
-  // Compuerta de aprobación: sin el visto bueno de un admin (y sin
-  // ser admin), el vendedor solo ve la pantalla de espera.
-  if (!esAdmin && estado !== "aprobado") {
-    return (
-      <PantallaEspera
-        estado={estado ?? "pendiente"}
-        onLogout={onLogout}
-      />
-    );
-  }
+  // OJO: ningún return antes de terminar TODOS los hooks — la
+  // compuerta va después (el orden de hooks no puede cambiar
+  // entre renders, p. ej. cuando el estado pasa a "aprobado").
 
   const pendientesCount = vendedoresAdmin.filter(
     (v) => v.estado === "pendiente" && v.id !== vendorUid,
@@ -545,6 +537,18 @@ function VendorApp({ vendorUid, onLogout, estado, esAdmin }: VendorProps) {
 
   const totalPorCobrar = clients.reduce((s, c) => s + deuda(c), 0);
   const m = metricas(clients);
+
+  // Compuerta de aprobación (después de todos los hooks): sin el
+  // visto bueno de un admin (y sin ser admin), el vendedor solo
+  // ve la pantalla de espera.
+  if (!esAdmin && estado !== "aprobado") {
+    return (
+      <PantallaEspera
+        estado={estado ?? "pendiente"}
+        onLogout={onLogout}
+      />
+    );
+  }
 
   return (
     <div className="min-h-screen">

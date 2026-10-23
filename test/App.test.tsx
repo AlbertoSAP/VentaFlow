@@ -433,6 +433,20 @@ describe("aprobación de vendedores", () => {
     ).not.toBeInTheDocument();
   });
 
+  it("al ser aprobado, la pantalla de espera se libera sin volver a montar (regresión: orden de hooks)", () => {
+    setAuth({ ...VENDOR, estado: "pendiente" });
+    setClientsHook({ clients: [] });
+    const { rerender } = render(<App />);
+    expect(screen.getByText(/Por favor espere/)).toBeInTheDocument();
+
+    setAuth({ ...VENDOR, estado: "aprobado" });
+    rerender(<App />);
+    expect(
+      screen.getByRole("button", { name: /Clientes/ }),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/Por favor espere/)).not.toBeInTheDocument();
+  });
+
   it("un vendedor rechazado ve el aviso de no aprobado", () => {
     setAuth({ ...VENDOR, estado: "rechazado" });
     setClientsHook({ clients: [] });
