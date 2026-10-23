@@ -23,6 +23,8 @@ function setAuth(partial: Record<string, unknown>) {
     user: null,
     role: null,
     resolving: false,
+    estado: "aprobado",
+    esAdmin: false,
     registerVendor: jest.fn(async () => {}),
     loginVendor: jest.fn(async () => {}),
     loginClient: jest.fn(async () => {}),
@@ -47,7 +49,13 @@ const VENDOR = { user: { uid: "vendor-1" }, role: "vendedor" };
 beforeEach(() => {
   jest.clearAllMocks();
   __fakeDb.reset();
+  window.history.pushState({}, "", "/");
 });
+
+/** La puerta de acceso depende de la ruta: /vendedor o /cliente */
+function irA(ruta: string) {
+  window.history.pushState({}, "", ruta);
+}
 
 describe("puerta de acceso (App)", () => {
   it("muestra pantalla de carga mientras resuelve la sesión", () => {
@@ -56,10 +64,11 @@ describe("puerta de acceso (App)", () => {
     expect(screen.getByText("Conectando…")).toBeInTheDocument();
   });
 
-  it("sin sesión muestra el login de vendedor y permite entrar", async () => {
+  it("sin sesión, la ruta /vendedor muestra el login de vendedor y permite entrar", async () => {
     const user = userEvent.setup();
     const loginVendor = jest.fn(async () => {});
     setAuth({ loginVendor });
+    irA("/vendedor");
     render(<App />);
 
     await user.type(screen.getByPlaceholderText("Tu correo *"), "juan@x.com");
@@ -69,13 +78,24 @@ describe("puerta de acceso (App)", () => {
     expect(loginVendor).toHaveBeenCalledWith("juan@x.com", "secreto");
   });
 
-  it("el cliente entra con su teléfono", async () => {
+  it("en la ruta de clientes, el cliente entra con su teléfono y NO ve nada de vendedores", async () => {
     const user = userEvent.setup();
     const loginClient = jest.fn(async () => {});
     setAuth({ loginClient });
+    irA("/cliente");
     render(<App />);
 
-    await user.click(screen.getByRole("button", { name: "Soy cliente" }));
+    // Ni registro, ni login de vendedor, ni su formulario de correo:
+    expect(
+      screen.queryByRole("button", { name: "Crear cuenta de vendedor" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByPlaceholderText("Tu correo *"),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByPlaceholderText("Tu nombre *"),
+    ).not.toBeInTheDocument();
+
     await user.type(
       screen.getByPlaceholderText("Tu número de teléfono *"),
       "88887777",
@@ -86,10 +106,22 @@ describe("puerta de acceso (App)", () => {
     expect(loginClient).toHaveBeenCalledWith("88887777", "temporal");
   });
 
+  it("la raíz de la app también es la entrada de clientes", () => {
+    setAuth({});
+    render(<App />);
+    expect(
+      screen.getByPlaceholderText("Tu número de teléfono *"),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByPlaceholderText("Tu correo *"),
+    ).not.toBeInTheDocument();
+  });
+
   it("el registro crea la cuenta de vendedor", async () => {
     const user = userEvent.setup();
     const registerVendor = jest.fn(async () => {});
     setAuth({ registerVendor });
+    irA("/vendedor");
     render(<App />);
 
     await user.click(
@@ -382,6 +414,82 @@ describe("vista del vendedor", () => {
   });
 });
 
+describe("aprobación de vendedores", () => {
+  it("un vendedor pendiente solo ve la pantalla de espera", () => {
+    setAuth({ ...VENDOR, estado: "pendiente" });
+    setClientsHook({ clients: [] });
+    render(<App />);
+
+    expect(screen.getByText(/Por favor espere/)).toBeInTheDocument();
+    expect(
+      screen.getByText(/su cuenta será validada/),
+    ).toBeInTheDocument();
+    // Nada de la app: ni navegación ni paneles
+    expect(
+      screen.queryByRole("button", { name: /Clientes/ }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /Dashboard/ }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("al ser aprobado, la pantalla de espera se libera sin volver a montar (regresión: orden de hooks)", () => {
+    setAuth({ ...VENDOR, estado: "pendiente" });
+    setClientsHook({ clients: [] });
+    const { rerender } = render(<App />);
+    expect(screen.getByText(/Por favor espere/)).toBeInTheDocument();
+
+    setAuth({ ...VENDOR, estado: "aprobado" });
+    rerender(<App />);
+    expect(
+      screen.getByRole("button", { name: /Clientes/ }),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/Por favor espere/)).not.toBeInTheDocument();
+  });
+
+  it("un vendedor rechazado ve el aviso de no aprobado", () => {
+    setAuth({ ...VENDOR, estado: "rechazado" });
+    setClientsHook({ clients: [] });
+    render(<App />);
+    expect(
+      screen.getByText("Tu cuenta no fue aprobada"),
+    ).toBeInTheDocument();
+  });
+
+  it("el admin entra aunque esté pendiente y aprueba solicitudes desde el panel", async () => {
+    const user = userEvent.setup();
+    __fakeDb.setData({
+      vendedores: {
+        "vendor-1": { name: "Admin", email: "admin@x.com", created: 1 },
+        v2: { name: "Nuevo Vendedor", email: "nuevo@x.com", created: 2 },
+      },
+      aprobaciones: { "vendor-1": { estado: "aprobado" } },
+    });
+    setAuth({ ...VENDOR, estado: "pendiente", esAdmin: true });
+    setClientsHook({ clients: [] });
+    render(<App />);
+
+    await user.click(
+      screen.getByRole("button", { name: /Solicitudes \(1\)/ }),
+    );
+    expect(screen.getByText("Nuevo Vendedor")).toBeInTheDocument();
+    expect(screen.getByText(/nuevo@x\.com/)).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Aprobar" }));
+    const data = __fakeDb.getData() as any;
+    expect(data.aprobaciones.v2.estado).toBe("aprobado");
+  });
+
+  it("sin ser admin no aparece la pestaña Solicitudes", () => {
+    setAuth({ ...VENDOR, estado: "aprobado", esAdmin: false });
+    setClientsHook({ clients: [] });
+    render(<App />);
+    expect(
+      screen.queryByRole("button", { name: /Solicitudes/ }),
+    ).not.toBeInTheDocument();
+  });
+});
+
 describe("vista del cliente (solo lectura)", () => {
   it("muestra su estado de cuenta sin controles de edición", async () => {
     __fakeDb.setData({
@@ -471,8 +579,9 @@ describe("usabilidad", () => {
     expect(input.type).toBe("password");
   });
 
-  it("la pantalla de acceso explica para qué sirve la app", () => {
+  it("la pantalla de acceso del vendedor explica para qué sirve la app", () => {
     setAuth({});
+    irA("/vendedor");
     render(<App />);
     expect(screen.getByText(/Lleva tus fiados sin papel/)).toBeInTheDocument();
   });

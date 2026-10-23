@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
-import { MessageCircle, Search } from "lucide-react";
+import { Clock, MessageCircle, Search, UserCheck } from "lucide-react";
 import {
   uid,
   fmtMoney,
@@ -11,7 +11,10 @@ import {
   whatsAppUrl,
   mensajeEstadoCuenta,
   mensajeDatosAcceso,
+  setEstadoVendedor,
   fullName,
+  type EstadoVendedor,
+  type VendorConEstado,
   subscribeOwnClient,
   type Client,
   type FiadoItem,
@@ -19,6 +22,7 @@ import {
 import { useAuth, mapAuthError } from "./hooks/useAuth.ts";
 import { useClient } from "./hooks/useClient.tsx";
 import { useCatalog } from "./hooks/useCatalog.ts";
+import { useAdminVendedores } from "./hooks/useAdmin.ts";
 import type { CatalogProduct } from "./storage.ts";
 import Dashboard, { metricas } from "./Dashboard.tsx";
 import { Button } from "@/components/ui/button";
@@ -191,9 +195,40 @@ function iniciales(nombre: string) {
     .join("");
 }
 
+/**
+ * Ruta de acceso: /vendedor es la entrada de vendedores (login +
+ * registro); cualquier otra ruta —incluida la raíz— es la entrada
+ * de clientes, que SOLO ven su propio formulario. Así el cliente
+ * nunca ve el acceso ni el registro de un vendedor: a cada quien
+ * se le comparte su enlace.
+ */
+function useRuta(): "vendedor" | "cliente" {
+  const leer = (): "vendedor" | "cliente" =>
+    window.location.pathname.startsWith("/vendedor")
+      ? "vendedor"
+      : "cliente";
+  const [ruta, setRuta] = useState<"vendedor" | "cliente">(leer);
+  useEffect(() => {
+    const onPop = () => setRuta(leer());
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, []);
+  return ruta;
+}
+
 function App() {
-  const { user, role, resolving, registerVendor, loginVendor, loginClient, logout } =
-    useAuth();
+  const {
+    user,
+    role,
+    resolving,
+    estado,
+    esAdmin,
+    registerVendor,
+    loginVendor,
+    loginClient,
+    logout,
+  } = useAuth();
+  const ruta = useRuta();
 
   if (resolving) {
     return (
@@ -209,17 +244,25 @@ function App() {
   }
 
   if (!user) {
-    return (
-      <AuthScreen
+    return ruta === "vendedor" ? (
+      <VendorAuthScreen
         onLoginVendor={loginVendor}
-        onLoginClient={loginClient}
         onRegisterVendor={registerVendor}
       />
+    ) : (
+      <ClientAuthScreen onLoginClient={loginClient} />
     );
   }
 
   if (role === "vendedor") {
-    return <VendorApp vendorUid={user.uid} onLogout={logout} />;
+    return (
+      <VendorApp
+        vendorUid={user.uid}
+        onLogout={logout}
+        estado={estado}
+        esAdmin={esAdmin}
+      />
+    );
   }
 
   if (role === "cliente") {
@@ -245,11 +288,10 @@ function App() {
   );
 }
 
-/* ==================== Pantalla de acceso ==================== */
+/* ============ Pantalla de acceso del VENDEDOR (/vendedor) ============ */
 
-interface AuthProps {
+interface VendorAuthProps {
   onLoginVendor: (email: string, password: string) => Promise<void>;
-  onLoginClient: (telephone: string, password: string) => Promise<void>;
   onRegisterVendor: (
     name: string,
     email: string,
@@ -257,12 +299,10 @@ interface AuthProps {
   ) => Promise<void>;
 }
 
-function AuthScreen({ onLoginVendor, onLoginClient, onRegisterVendor }: AuthProps) {
+function VendorAuthScreen({ onLoginVendor, onRegisterVendor }: VendorAuthProps) {
   const [mode, setMode] = useState<"login" | "register">("login");
-  const [loginAs, setLoginAs] = useState<"vendedor" | "cliente">("vendedor");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
-  const [telephone, setTelephone] = useState("");
   const [password, setPassword] = useState("");
   const [showPw, setShowPw] = useState(false);
   const [error, setError] = useState("");
@@ -275,10 +315,8 @@ function AuthScreen({ onLoginVendor, onLoginClient, onRegisterVendor }: AuthProp
     try {
       if (mode === "register") {
         await onRegisterVendor(name, email, password);
-      } else if (loginAs === "vendedor") {
-        await onLoginVendor(email, password);
       } else {
-        await onLoginClient(telephone, password);
+        await onLoginVendor(email, password);
       }
     } catch (err) {
       setError(mapAuthError(err));
@@ -323,88 +361,40 @@ function AuthScreen({ onLoginVendor, onLoginClient, onRegisterVendor }: AuthProp
 
           <form className="flex flex-col gap-4" onSubmit={submit}>
             {mode === "register" && (
-              <>
-                <Input
-                  placeholder="Tu nombre *"
-                  autoComplete="name"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                />
-                <Input
-                  type="email"
-                  placeholder="Tu correo *"
-                  autoComplete="email"
-                  inputMode="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                />
-                <Input
-                  type={showPw ? "text" : "password"}
-                  placeholder="Contraseña (mín. 6 caracteres) *"
-                  autoComplete="new-password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                />
-                <ShowPwButton show={showPw} onToggle={() => setShowPw(!showPw)} />
-                <p className="text-xs leading-relaxed text-muted-foreground">
-                  El registro es solo para vendedores. Las cuentas de
-                  cliente las crea su vendedor desde la app.
-                </p>
-              </>
+              <Input
+                placeholder="Tu nombre *"
+                autoComplete="name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+              />
             )}
-
-            {mode === "login" && (
-              <>
-                <Seg>
-                  <button
-                    type="button"
-                    className={segBtnCls(loginAs === "vendedor")}
-                    onClick={() => setLoginAs("vendedor")}
-                  >
-                    Soy vendedor
-                  </button>
-                  <button
-                    type="button"
-                    className={segBtnCls(loginAs === "cliente")}
-                    onClick={() => setLoginAs("cliente")}
-                  >
-                    Soy cliente
-                  </button>
-                </Seg>
-
-                {loginAs === "vendedor" ? (
-                  <Input
-                    type="email"
-                    placeholder="Tu correo *"
-                    autoComplete="email"
-                    inputMode="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                  />
-                ) : (
-                  <>
-                    <Input
-                      placeholder="Tu número de teléfono *"
-                      inputMode="tel"
-                      autoComplete="tel"
-                      value={telephone}
-                      onChange={(e) => setTelephone(e.target.value)}
-                    />
-                    <p className="text-xs leading-relaxed text-muted-foreground">
-                      Entrás con el teléfono que te registró tu vendedor y
-                      la contraseña que te entregó.
-                    </p>
-                  </>
-                )}
-                <Input
-                  type={showPw ? "text" : "password"}
-                  placeholder="Contraseña *"
-                  autoComplete="current-password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                />
-                <ShowPwButton show={showPw} onToggle={() => setShowPw(!showPw)} />
-              </>
+            <Input
+              type="email"
+              placeholder="Tu correo *"
+              autoComplete="email"
+              inputMode="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+            />
+            <Input
+              type={showPw ? "text" : "password"}
+              placeholder={
+                mode === "register"
+                  ? "Contraseña (mín. 6 caracteres) *"
+                  : "Contraseña *"
+              }
+              autoComplete={
+                mode === "register" ? "new-password" : "current-password"
+              }
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+            />
+            <ShowPwButton show={showPw} onToggle={() => setShowPw(!showPw)} />
+            {mode === "register" && (
+              <p className="text-xs leading-relaxed text-muted-foreground">
+                El registro es solo para vendedores. Las cuentas de
+                cliente las crea su vendedor desde la app.
+              </p>
             )}
 
             {error && <ErrorMsg>{error}</ErrorMsg>}
@@ -423,14 +413,91 @@ function AuthScreen({ onLoginVendor, onLoginClient, onRegisterVendor }: AuthProp
   );
 }
 
+/* ============ Pantalla de acceso del CLIENTE (/cliente) ============ */
+/* Solo su formulario: aquí no existe registro ni acceso de vendedor. */
+
+interface ClientAuthProps {
+  onLoginClient: (telephone: string, password: string) => Promise<void>;
+}
+
+function ClientAuthScreen({ onLoginClient }: ClientAuthProps) {
+  const [telephone, setTelephone] = useState("");
+  const [password, setPassword] = useState("");
+  const [showPw, setShowPw] = useState(false);
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  const submit = async (e: FormEvent) => {
+    e.preventDefault();
+    setError("");
+    setBusy(true);
+    try {
+      await onLoginClient(telephone, password);
+    } catch (err) {
+      setError(mapAuthError(err));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen">
+      <Topbar />
+
+      <Wrap narrow>
+        <div className="pt-2 text-center">
+          <h2 className="text-2xl font-bold tracking-tight">
+            Consulta tu estado de cuenta
+          </h2>
+          <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+            Entrá con el número de teléfono que te registró tu vendedor
+            y la contraseña que te entregó.
+          </p>
+        </div>
+
+        <Card className="gap-5 p-6">
+          <form className="flex flex-col gap-4" onSubmit={submit}>
+            <Input
+              placeholder="Tu número de teléfono *"
+              inputMode="tel"
+              autoComplete="tel"
+              value={telephone}
+              onChange={(e) => setTelephone(e.target.value)}
+            />
+            <Input
+              type={showPw ? "text" : "password"}
+              placeholder="Contraseña *"
+              autoComplete="current-password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+            />
+            <ShowPwButton show={showPw} onToggle={() => setShowPw(!showPw)} />
+
+            {error && <ErrorMsg>{error}</ErrorMsg>}
+
+            <Button className="w-full" type="submit" disabled={busy}>
+              {busy ? "Espera…" : "Entrar"}
+            </Button>
+          </form>
+        </Card>
+      </Wrap>
+    </div>
+  );
+}
+
 /* ==================== Vista del vendedor ==================== */
 
 type Vista =
-  { tipo: "lista" } | { tipo: "detalle"; id: string } | { tipo: "dashboard" };
+  | { tipo: "lista" }
+  | { tipo: "detalle"; id: string }
+  | { tipo: "dashboard" }
+  | { tipo: "solicitudes" };
 
 interface VendorProps {
   vendorUid: string;
   onLogout: () => Promise<void>;
+  estado: EstadoVendedor | null;
+  esAdmin: boolean;
 }
 
 function navBtnCls(active: boolean) {
@@ -442,7 +509,7 @@ function navBtnCls(active: boolean) {
   );
 }
 
-function VendorApp({ vendorUid, onLogout }: VendorProps) {
+function VendorApp({ vendorUid, onLogout, estado, esAdmin }: VendorProps) {
   const { clients, loading, createClient, deleteClient, saveClient } =
     useClient(vendorUid);
   const {
@@ -450,8 +517,16 @@ function VendorApp({ vendorUid, onLogout }: VendorProps) {
     addProduct: addFrecuente,
     deleteProduct: deleteFrecuente,
   } = useCatalog(vendorUid);
+  const vendedoresAdmin = useAdminVendedores(esAdmin);
   const [vista, setVista] = useState<Vista>({ tipo: "dashboard" });
   const [busqueda, setBusqueda] = useState("");
+  // OJO: ningún return antes de terminar TODOS los hooks — la
+  // compuerta va después (el orden de hooks no puede cambiar
+  // entre renders, p. ej. cuando el estado pasa a "aprobado").
+
+  const pendientesCount = vendedoresAdmin.filter(
+    (v) => v.estado === "pendiente" && v.id !== vendorUid,
+  ).length;
 
   const clientesFiltrados = useMemo(() => {
     const q = busqueda.trim().toLowerCase();
@@ -462,6 +537,18 @@ function VendorApp({ vendorUid, onLogout }: VendorProps) {
 
   const totalPorCobrar = clients.reduce((s, c) => s + deuda(c), 0);
   const m = metricas(clients);
+
+  // Compuerta de aprobación (después de todos los hooks): sin el
+  // visto bueno de un admin (y sin ser admin), el vendedor solo
+  // ve la pantalla de espera.
+  if (!esAdmin && estado !== "aprobado") {
+    return (
+      <PantallaEspera
+        estado={estado ?? "pendiente"}
+        onLogout={onLogout}
+      />
+    );
+  }
 
   return (
     <div className="min-h-screen">
@@ -483,6 +570,17 @@ function VendorApp({ vendorUid, onLogout }: VendorProps) {
             Clientes
             {m.clientesConDeuda > 0 ? ` (${m.clientesConDeuda})` : ""}
           </button>
+
+          {esAdmin && (
+            <button
+              type="button"
+              className={navBtnCls(vista.tipo === "solicitudes")}
+              onClick={() => setVista({ tipo: "solicitudes" })}
+            >
+              Solicitudes
+              {pendientesCount > 0 ? ` (${pendientesCount})` : ""}
+            </button>
+          )}
 
           <button
             type="button"
@@ -513,6 +611,12 @@ function VendorApp({ vendorUid, onLogout }: VendorProps) {
           totalPorCobrar={totalPorCobrar}
           onAbrir={(id: string) => setVista({ tipo: "detalle", id })}
         />
+      ) : vista.tipo === "solicitudes" ? (
+        <PanelSolicitudes
+          vendedores={vendedoresAdmin}
+          miUid={vendorUid}
+          onSetEstado={(uid, e) => void setEstadoVendedor(uid, e)}
+        />
       ) : (
         <DetalleCliente
           onSave={saveClient}
@@ -524,6 +628,183 @@ function VendorApp({ vendorUid, onLogout }: VendorProps) {
         />
       )}
     </div>
+  );
+}
+
+/* ======== Pantalla de espera: vendedor aún no aprobado ======== */
+
+function PantallaEspera({
+  estado,
+  onLogout,
+}: {
+  estado: EstadoVendedor;
+  onLogout: () => Promise<void>;
+}) {
+  const rechazado = estado === "rechazado";
+  return (
+    <div className="min-h-screen">
+      <Topbar>
+        <Button variant="outline" size="sm" onClick={() => void onLogout()}>
+          Salir
+        </Button>
+      </Topbar>
+      <Wrap narrow>
+        <Card className="items-center gap-3 p-8 text-center">
+          <span className="grid size-14 place-items-center rounded-full bg-amber-50 text-amber-600 [&_svg]:size-7">
+            {rechazado ? <UserCheck /> : <Clock />}
+          </span>
+          <h2 className="text-xl font-bold tracking-tight">
+            {rechazado
+              ? "Tu cuenta no fue aprobada"
+              : "Tu cuenta está en revisión"}
+          </h2>
+          <p className="text-sm leading-relaxed text-muted-foreground">
+            {rechazado
+              ? "Tu solicitud de acceso a VentaFlow no fue aprobada. Si creés que se trata de un error, contactá al administrador de la aplicación."
+              : "Por favor espere, su cuenta será validada y posteriormente podrá comenzar a hacer uso de ella. Cuando sea aprobada, entrá de nuevo con tu correo y contraseña: el acceso se libera automáticamente."}
+          </p>
+        </Card>
+      </Wrap>
+    </div>
+  );
+}
+
+/* ======== Panel del administrador: solicitudes de vendedores ======== */
+
+function PanelSolicitudes({
+  vendedores,
+  miUid,
+  onSetEstado,
+}: {
+  vendedores: VendorConEstado[];
+  miUid: string;
+  onSetEstado: (uid: string, estado: EstadoVendedor) => void;
+}) {
+  const pendientes = vendedores.filter(
+    (v) => v.estado === "pendiente" && v.id !== miUid,
+  );
+  const aprobados = vendedores.filter(
+    (v) => v.estado === "aprobado" && v.id !== miUid,
+  );
+  const rechazados = vendedores.filter(
+    (v) => v.estado === "rechazado" && v.id !== miUid,
+  );
+
+  const fila = (v: VendorConEstado, acciones: ReactNode) => (
+    <div
+      key={v.id}
+      className="flex flex-wrap items-center justify-between gap-3 rounded-xl border bg-card p-4 shadow-sm"
+    >
+      <div className="flex min-w-0 items-center gap-3.5">
+        <span className="grid size-11 shrink-0 place-items-center rounded-full bg-blue-50 text-sm font-bold text-primary">
+          {iniciales(v.name || v.email)}
+        </span>
+        <div className="min-w-0">
+          <strong className="block truncate">
+            {v.name || "(sin nombre)"}
+          </strong>
+          <div className="truncate text-xs text-muted-foreground">
+            {v.email}
+            {v.created > 0 ? ` · Registrado: ${fmtFecha(v.created)}` : ""}
+          </div>
+        </div>
+      </div>
+      <div className="flex shrink-0 gap-2">{acciones}</div>
+    </div>
+  );
+
+  return (
+    <Wrap wide>
+      <div>
+        <h2 className="text-2xl font-bold tracking-tight">
+          Solicitudes de vendedores
+        </h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Solo los vendedores que aprobés aquí pueden comenzar a usar
+          la aplicación. El resto ve una pantalla de espera.
+        </p>
+      </div>
+
+      <h3 className="text-base font-semibold tracking-tight">
+        Pendientes ({pendientes.length})
+      </h3>
+      {pendientes.length === 0 ? (
+        <p className="text-sm text-muted-foreground">
+          No hay solicitudes pendientes.
+        </p>
+      ) : (
+        <div className="flex flex-col gap-3">
+          {pendientes.map((v) =>
+            fila(
+              v,
+              <>
+                <Button
+                  variant="success"
+                  size="sm"
+                  onClick={() => onSetEstado(v.id, "aprobado")}
+                >
+                  Aprobar
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="text-red-600 hover:text-red-700"
+                  onClick={() => onSetEstado(v.id, "rechazado")}
+                >
+                  Rechazar
+                </Button>
+              </>,
+            ),
+          )}
+        </div>
+      )}
+
+      <h3 className="text-base font-semibold tracking-tight">
+        Aprobados ({aprobados.length})
+      </h3>
+      {aprobados.length === 0 ? (
+        <p className="text-sm text-muted-foreground">
+          Todavía no aprobaste a ningún vendedor.
+        </p>
+      ) : (
+        <div className="flex flex-col gap-3">
+          {aprobados.map((v) =>
+            fila(
+              v,
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => onSetEstado(v.id, "pendiente")}
+              >
+                Revocar acceso
+              </Button>,
+            ),
+          )}
+        </div>
+      )}
+
+      {rechazados.length > 0 && (
+        <>
+          <h3 className="text-base font-semibold tracking-tight">
+            Rechazados ({rechazados.length})
+          </h3>
+          <div className="flex flex-col gap-3">
+            {rechazados.map((v) =>
+              fila(
+                v,
+                <Button
+                  variant="success"
+                  size="sm"
+                  onClick={() => onSetEstado(v.id, "aprobado")}
+                >
+                  Aprobar
+                </Button>,
+              ),
+            )}
+          </div>
+        </>
+      )}
+    </Wrap>
   );
 }
 

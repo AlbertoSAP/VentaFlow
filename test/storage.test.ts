@@ -3,6 +3,10 @@ import {
   fmtFecha,
   generateEmailAlias,
   generateTempPassword,
+  subscribeEstadoVendedor,
+  getEsAdmin,
+  setEstadoVendedor,
+  subscribeVendedoresAdmin,
   whatsAppPhone,
   whatsAppUrl,
   mensajeEstadoCuenta,
@@ -49,6 +53,38 @@ describe("utilidades de formato", () => {
     expect(generateEmailAlias("50588887777")).toBe(
       "flowventas13+88887777@gmail.com",
     );
+  });
+
+  it("el estado de aprobación por defecto es pendiente y cambia con setEstadoVendedor", async () => {
+    const vistos: string[] = [];
+    const off = subscribeEstadoVendedor("vendor-9", (e) => vistos.push(e));
+    expect(vistos).toEqual(["pendiente"]);
+    off();
+    await setEstadoVendedor("vendor-9", "aprobado");
+    const data = __fakeDb.getData() as any;
+    expect(data.aprobaciones["vendor-9"].estado).toBe("aprobado");
+  });
+
+  it("getEsAdmin solo es true si el nodo admins lo marca", async () => {
+    __fakeDb.setData({ admins: { root1: true } });
+    await expect(getEsAdmin("root1")).resolves.toBe(true);
+    await expect(getEsAdmin("vendor-9")).resolves.toBe(false);
+  });
+
+  it("subscribeVendedoresAdmin combina perfiles con su estado", () => {
+    __fakeDb.setData({
+      vendedores: {
+        v1: { name: "Uno", email: "uno@x.com", created: 100 },
+        v2: { name: "Dos", email: "dos@x.com", created: 200 },
+      },
+      aprobaciones: { v1: { estado: "aprobado" } },
+    });
+    let lista: any[] = [];
+    const off = subscribeVendedoresAdmin((l) => (lista = l));
+    off();
+    expect(lista.map((v) => v.id)).toEqual(["v2", "v1"]); // más reciente primero
+    expect(lista.find((v) => v.id === "v1").estado).toBe("aprobado");
+    expect(lista.find((v) => v.id === "v2").estado).toBe("pendiente");
   });
 
   it("whatsAppPhone normaliza al formato internacional de Nicaragua", () => {

@@ -11,7 +11,10 @@ import {
   getUserRole,
   writeVendorProfile,
   generateEmailAlias,
+  getEsAdmin,
+  subscribeEstadoVendedor,
   type Rol,
+  type EstadoVendedor,
 } from "../storage.ts";
 
 export function mapAuthError(e: unknown): string {
@@ -40,6 +43,8 @@ export const useAuth = () => {
   const [user, setUser] = useState<User | null>(null);
   const [role, setRole] = useState<Rol | null>(null);
   const [resolving, setResolving] = useState(true);
+  const [estado, setEstado] = useState<EstadoVendedor | null>(null);
+  const [esAdmin, setEsAdmin] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -64,6 +69,27 @@ export const useAuth = () => {
       }
     });
   }, []);
+
+  // Aprobación: un vendedor nuevo queda "pendiente" hasta que un
+  // admin lo apruebe; el estado se escucha en vivo (si lo aprueban
+  // mientras espera, su pantalla se libera sola). Los administradores
+  // se marcan a mano en la consola (nodo `admins/{uid}`).
+  useEffect(() => {
+    if (!user || role !== "vendedor") {
+      setEstado(null);
+      setEsAdmin(false);
+      return;
+    }
+    let activo = true;
+    void getEsAdmin(user.uid).then((v) => {
+      if (activo) setEsAdmin(v);
+    });
+    const off = subscribeEstadoVendedor(user.uid, setEstado);
+    return () => {
+      activo = false;
+      off();
+    };
+  }, [user, role]);
 
   /** Registro de vendedor: crea la cuenta Auth y su perfil en `vendedores/{uid}` */
   const registerVendor = async (
@@ -98,5 +124,15 @@ export const useAuth = () => {
     await signOut(auth);
   };
 
-  return { user, role, resolving, registerVendor, loginVendor, loginClient, logout };
+  return {
+    user,
+    role,
+    resolving,
+    estado,
+    esAdmin,
+    registerVendor,
+    loginVendor,
+    loginClient,
+    logout,
+  };
 };
