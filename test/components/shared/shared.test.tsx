@@ -9,7 +9,7 @@ import { ShowPwButton } from "../../../src/components/shared/ShowPwButton.tsx";
 import { TotalBox } from "../../../src/components/shared/TotalBox.tsx";
 import { Totals } from "../../../src/components/shared/Totals.tsx";
 import { segBtnCls } from "../../../src/components/shared/SegBtnCls.tsx";
-import { navBtnCls } from "../../../src/components/shared/navBtnCls.tsx";
+import { NavBtnCls } from "../../../src/components/shared/NavBtnCls.tsx";
 import { makeClient } from "../../fixtures";
 
 // Piezas chicas compartidas: cada una con su prueba propia.
@@ -125,13 +125,13 @@ describe("Totals", () => {
   });
 });
 
-describe("segBtnCls / navBtnCls", () => {
+describe("segBtnCls / NavBtnCls", () => {
   it("el estado activo se distingue del inactivo", () => {
     expect(segBtnCls(true)).toContain("bg-white");
     expect(segBtnCls(false)).toContain("text-slate-500");
-    expect(navBtnCls(true)).toContain("bg-slate-900");
-    expect(navBtnCls(false)).toContain("text-slate-500");
+    expect(NavBtnCls(true)).toContain("bg-slate-900");
+    expect(NavBtnCls(false)).toContain("text-slate-500");
     expect(segBtnCls(true)).not.toBe(segBtnCls(false));
-    expect(navBtnCls(true)).not.toBe(navBtnCls(false));
+    expect(NavBtnCls(true)).not.toBe(NavBtnCls(false));
   });
 });
