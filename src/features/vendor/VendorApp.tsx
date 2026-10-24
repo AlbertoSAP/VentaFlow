@@ -4,7 +4,7 @@ import { useCatalog } from "@/hooks/useCatalog";
 import { useClient } from "@/hooks/useClient";
 import { deuda, EstadoVendedor, fullName, setEstadoVendedor } from "@/storage";
 import { useMemo, useState } from "react";
-import { AwaitScreen } from "../access/awaitScreen";
+import { AwaitScreen } from "../access/AwaitScreen";
 import { Topbar } from "@/components/shared/Topbar";
 import { navBtnCls } from "@/components/shared/navBtnCls";
 import { Wrap } from "@/components/shared/Wrap";
