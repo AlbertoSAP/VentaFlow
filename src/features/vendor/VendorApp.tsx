@@ -6,7 +6,7 @@ import { deuda, EstadoVendedor, fullName, setEstadoVendedor } from "@/storage";
 import { useMemo, useState } from "react";
 import { AwaitScreen } from "../access/AwaitScreen";
 import { Topbar } from "@/components/shared/Topbar";
-import { navBtnCls } from "@/components/shared/navBtnCls";
+import { NavBtnCls } from "@/components/shared/NavBtnCls";
 import { Wrap } from "@/components/shared/Wrap";
 import { ClientList } from "./ClientList";
 import { RequestsPanel } from "./RequestsPanel";
@@ -71,7 +71,7 @@ export function VendorApp({
       <Topbar menu>
         <button
           type="button"
-          className={navBtnCls(vista.tipo === "dashboard")}
+          className={NavBtnCls(vista.tipo === "dashboard")}
           onClick={() => setVista({ tipo: "dashboard" })}
         >
           Dashboard
@@ -79,7 +79,7 @@ export function VendorApp({
 
         <button
           type="button"
-          className={navBtnCls(vista.tipo === "lista")}
+          className={NavBtnCls(vista.tipo === "lista")}
           onClick={() => setVista({ tipo: "lista" })}
         >
           Clientes
@@ -89,7 +89,7 @@ export function VendorApp({
         {esAdmin && (
           <button
             type="button"
-            className={navBtnCls(vista.tipo === "solicitudes")}
+            className={NavBtnCls(vista.tipo === "solicitudes")}
             onClick={() => setVista({ tipo: "solicitudes" })}
           >
             Solicitudes
@@ -99,7 +99,7 @@ export function VendorApp({
 
         <button
           type="button"
-          className={navBtnCls(false)}
+          className={NavBtnCls(false)}
           onClick={() => void onLogout()}
         >
           Salir

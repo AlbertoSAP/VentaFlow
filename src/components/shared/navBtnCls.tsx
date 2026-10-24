@@ -1,6 +1,6 @@
 import { cn } from "@/lib/utils";
 
-export function navBtnCls(active: boolean) {
+export function NavBtnCls(active: boolean) {
   return cn(
     "rounded-lg px-3.5 py-2 text-sm font-semibold transition",
     active
