@@ -26,7 +26,7 @@ jest.mock("../../../src/features/access/VendorAuthScreen.tsx", () => ({
   VendorAuthScreen: () => <div data-testid="vendor-auth" />,
 }));
 
-jest.mock("../../../src/features/client/ClientAuthScreen.tsx", () => ({
+jest.mock("../../../src/features/access/ClientAuthScreen.tsx", () => ({
   ClientAuthScreen: () => <div data-testid="client-auth" />,
 }));
 
@@ -34,8 +34,9 @@ jest.mock("../../../src/features/vendor/VendorApp.tsx", () => ({
   VendorApp: () => <div data-testid="vendor-app" />,
 }));
 
-jest.mock("../../../src/features/access/ClientApp.tsx", () => ({
-  ClientApp: () => <div data-testid="client-app" />,
+jest.mock("../../../src/features/client/ClientApp.tsx", () => ({
+  __esModule: true,
+  default: () => <div data-testid="client-app" />,
 }));
 
 const useAuthMock = useAuth as unknown as jest.Mock;

@@ -1,6 +1,6 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { ClientAuthScreen } from "../../../src/features/client/ClientAuthScreen.tsx";
+import { ClientAuthScreen } from "../../../src/features/access/ClientAuthScreen.tsx";
 
 // Hijos mockeados: cada uno tiene sus propias pruebas. El Topbar
 // mock expone el gesto del logo como un botón para probar el cableado
