@@ -49,13 +49,13 @@ jest.mock("@/components/shared/Errorhelper", () => ({
   ),
 }));
 
-const BASE_PROPS = {
-  allClients: [] as ReturnType<typeof makeClient>[],
-  createClient: jest.fn(async () => ({ ok: false, error: "error" })),
+const BASE_PROPS: React.ComponentProps<typeof ClientList> = {
+  allClients: [],
+  createClient: jest.fn(async () => ({ ok: false as const, error: "error" })),
   deleteClient: jest.fn(async () => null),
   busqueda: "",
   setBusqueda: jest.fn(),
-  clientes: [] as ReturnType<typeof makeClient>[],
+  clientes: [],
   totalPorCobrar: 0,
   onAbrir: jest.fn(),
 };
@@ -99,7 +99,7 @@ describe("ClientList", () => {
       telephone: "99998888",
     });
     const createClient = jest.fn(async () => ({
-      ok: true,
+      ok: true as const,
       client: nuevo,
       tempPassword: "Temp123XYZ",
     }));
@@ -127,7 +127,7 @@ describe("ClientList", () => {
   it("un error al crear muestra el mensaje en el formulario", async () => {
     const user = userEvent.setup();
     const createClient = jest.fn(async () => ({
-      ok: false,
+      ok: false as const,
       error: "Ese teléfono ya está registrado",
     }));
     renderList({ createClient });
