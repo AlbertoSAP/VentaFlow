@@ -3,9 +3,9 @@ import { Wrap } from "@/components/shared/Wrap";
 import { useAuth } from "@/hooks/useAuth";
 import { Route, Routes, useNavigate } from "react-router-dom";
 import { VendorAuthScreen } from "./VendorAuthScreen";
-import { ClientAuthScreen } from "../client/ClientAuthScreen";
+import { ClientAuthScreen } from "./ClientAuthScreen";
 import { VendorApp } from "../vendor/VendorApp";
-import { ClientApp } from "./ClientApp";
+import ClientApp from "../client/ClientApp";
 import { Button } from "@/components/ui/button";
 
 export function Access() {

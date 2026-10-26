@@ -1,7 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { ClientApp } from "../../../src/features/access/ClientApp.tsx";
-import { makeClient } from "../../fixtures";
+import { makeClient } from "../../fixtures.ts";
+import ClientApp from "../../../src/features/client/ClientApp.tsx";
 
 // Hijos mockeados: cada uno tiene sus propias pruebas. La suscripción
 // al registro se controla por prueba (nunca responde, responde null o
@@ -26,9 +26,7 @@ jest.mock("@/components/shared/Topbar", () => ({
 }));
 
 jest.mock("@/components/shared/Wrap", () => ({
-  Wrap: ({ children }: { children?: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
+  Wrap: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>,
 }));
 
 jest.mock("@/components/shared/TotalBox", () => ({
@@ -48,9 +46,15 @@ jest.mock("@/components/shared/Totals", () => ({
 
 const CLIENTE = makeClient({ id: "cli-1" });
 
-function renderClientApp(props: Partial<React.ComponentProps<typeof ClientApp>> = {}) {
+function renderClientApp(
+  props: Partial<React.ComponentProps<typeof ClientApp>> = {},
+) {
   return render(
-    <ClientApp clientUid="cli-1" onLogout={jest.fn(async () => {})} {...props} />,
+    <ClientApp
+      clientUid="cli-1"
+      onLogout={jest.fn(async () => {})}
+      {...props}
+    />,
   );
 }
 

@@ -21,7 +21,7 @@ interface ClientProps {
   onLogout: () => Promise<void>;
 }
 
-export function ClientApp({ clientUid, onLogout }: ClientProps) {
+export default function ClientApp({ clientUid, onLogout }: ClientProps) {
   const [cliente, setCliente] = useState<Client | null | undefined>(undefined);
 
   useEffect(() => subscribeOwnClient(clientUid, setCliente), [clientUid]);
