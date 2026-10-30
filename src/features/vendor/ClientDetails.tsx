@@ -1,4 +1,4 @@
-import { AvisoOk } from "@/components/shared/AvisoOk";
+import { SuccessNotice } from "@/components/shared/SuccessNotice";
 import { ConfirmModal } from "@/components/shared/ConfirmModal";
 import { moneyCls, pagadoCls, TotalBox } from "@/components/shared/TotalBox";
 import { Totals } from "@/components/shared/Totals";
@@ -160,7 +160,7 @@ export function ClientDetails({
 
   return (
     <Wrap>
-      {aviso && <AvisoOk>{aviso}</AvisoOk>}
+      {aviso && <SuccessNotice>{aviso}</SuccessNotice>}
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <h2 className="text-2xl font-bold tracking-tight">

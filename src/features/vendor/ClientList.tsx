@@ -1,4 +1,4 @@
-import { AvisoOk } from "@/components/shared/AvisoOk";
+import { SuccessNotice } from "@/components/shared/SuccessNotice";
 import { ConfirmModal } from "@/components/shared/ConfirmModal";
 import { ErrorMsg } from "@/components/shared/Errorhelper";
 import { deudaCls, moneyCls, pagadoCls } from "@/components/shared/TotalBox";
@@ -129,7 +129,7 @@ export function ClientList({
         </Card>
       </div>
 
-      {aviso && <AvisoOk>{aviso}</AvisoOk>}
+      {aviso && <SuccessNotice>{aviso}</SuccessNotice>}
 
       <Card className="gap-4 p-6">
         <h3 className="text-base font-semibold tracking-tight">

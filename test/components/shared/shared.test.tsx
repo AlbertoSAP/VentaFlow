@@ -3,7 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { Logo } from "../../../src/components/shared/Logo.tsx";
 import { Wrap } from "../../../src/components/shared/Wrap.tsx";
 import { Seg } from "../../../src/components/shared/Seg.tsx";
-import { AvisoOk } from "../../../src/components/shared/AvisoOk.tsx";
+import { SuccessNotice } from "../../../src/components/shared/SuccessNotice.tsx";
 import { ErrorMsg } from "../../../src/components/shared/Errorhelper.tsx";
 import { ShowPwButton } from "../../../src/components/shared/ShowPwButton.tsx";
 import { TotalBox } from "../../../src/components/shared/TotalBox.tsx";
@@ -57,9 +57,9 @@ describe("Seg", () => {
   });
 });
 
-describe("AvisoOk", () => {
+describe("SuccessNotice", () => {
   it("anuncia el mensaje como estado", () => {
-    render(<AvisoOk>Guardado</AvisoOk>);
+    render(<SuccessNotice>Guardado</SuccessNotice>);
     expect(screen.getByRole("status")).toHaveTextContent("Guardado");
   });
 });

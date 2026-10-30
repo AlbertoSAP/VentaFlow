@@ -37,8 +37,8 @@ jest.mock("@/components/shared/Wrap", () => ({
   ),
 }));
 
-jest.mock("@/components/shared/AvisoOk", () => ({
-  AvisoOk: ({ children }: { children?: React.ReactNode }) => (
+jest.mock("@/components/shared/SuccessNotice", () => ({
+  SuccessNotice: ({ children }: { children?: React.ReactNode }) => (
     <div>{children}</div>
   ),
 }));
