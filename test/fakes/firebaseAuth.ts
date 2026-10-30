@@ -10,7 +10,7 @@ export const __fakeAuth = {
       user: { uid: `uid-${email}`, email },
     }),
   ),
-  signInImpl: jest.fn(async (_auth: unknown, email: string) => ({
+  signInImpl: jest.fn(async (_auth: unknown, email: string, _password: string) => ({
     user: { uid: `uid-${email}`, email },
   })),
   emit(user: unknown) {
@@ -25,9 +25,11 @@ export const __fakeAuth = {
         user: { uid: `uid-${email}`, email },
       }),
     );
-    this.signInImpl.mockImplementation(async (_auth: unknown, email: string) => ({
-      user: { uid: `uid-${email}`, email },
-    }));
+    this.signInImpl.mockImplementation(
+      async (_auth: unknown, email: string, _password: string) => ({
+        user: { uid: `uid-${email}`, email },
+      }),
+    );
   },
 };
 

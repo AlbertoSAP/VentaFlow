@@ -43,7 +43,7 @@ function makeSnapshot(refObj: FakeRef) {
   const q = refObj.__query;
   if (q?.orderByChild !== undefined && node && typeof node === "object") {
     const filtered: AnyObj = {};
-    for (const [k, v] of Object.entries(node)) {
+    for (const [k, v] of Object.entries(node as AnyObj)) {
       if (v && typeof v === "object" && v[q.orderByChild] === q.equalTo)
         filtered[k] = v;
     }
