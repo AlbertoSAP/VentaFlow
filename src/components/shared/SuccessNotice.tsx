@@ -1,6 +1,6 @@
 import { ReactNode } from "react";
 
-export function AvisoOk({ children }: { children: ReactNode }) {
+export function SuccessNotice({ children }: { children: ReactNode }) {
   return (
     <div
       role="status"
