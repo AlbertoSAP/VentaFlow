@@ -2,8 +2,22 @@ import Dashboard, { metricas } from "@/Dashboard";
 import { useAdminVendedores } from "@/hooks/useAdmin";
 import { useCatalog } from "@/hooks/useCatalog";
 import { useClient } from "@/hooks/useClient";
-import { deuda, EstadoVendedor, fullName, setEstadoVendedor } from "@/storage";
+import {
+  deuda,
+  EstadoVendedor,
+  fullName,
+  setEstadoVendedor,
+} from "@/storage";
+import type { CatalogProduct, Client } from "@/storage";
 import { useMemo, useState } from "react";
+import {
+  Navigate,
+  Route,
+  Routes,
+  useLocation,
+  useNavigate,
+  useParams,
+} from "react-router-dom";
 import { AwaitScreen } from "../access/AwaitScreen";
 import { Topbar } from "@/components/shared/Topbar";
 import { NavBtnCls } from "@/components/shared/NavBtnCls";
@@ -14,17 +28,48 @@ import { ClientDetails } from "./ClientDetails";
 
 /* ==================== Vista del vendedor ==================== */
 
-type Vista =
-  | { tipo: "lista" }
-  | { tipo: "detalle"; id: string }
-  | { tipo: "dashboard" }
-  | { tipo: "solicitudes" };
+/* Las secciones del vendedor son rutas, no estado interno: así un
+ * refresh en /vendedor/clientes o en el detalle de un cliente deja
+ * al vendedor en esa misma página (el servidor sirve index.html
+ * para cualquier ruta y el Router resuelve la vista). */
 
 interface VendorProps {
   vendorUid: string;
   onLogout: () => Promise<void>;
   estado: EstadoVendedor | null;
   esAdmin: boolean;
+}
+
+interface DetalleClienteProps {
+  clients: Client[];
+  onSave: (c: Client) => Promise<void>;
+  catalogo: CatalogProduct[];
+  onAddFrecuente: (descripcion: string, precio: number) => Promise<void>;
+  onDeleteFrecuente: (productId: string) => Promise<void>;
+}
+
+/* Componente a nivel de módulo (no dentro de VendorApp): si se
+ * definiera dentro, cada render del padre lo remontaría y el
+ * detalle perdería su estado local cuando cambian los clientes. */
+function DetalleCliente({
+  clients,
+  onSave,
+  catalogo,
+  onAddFrecuente,
+  onDeleteFrecuente,
+}: DetalleClienteProps) {
+  const { id } = useParams();
+  const navigate = useNavigate();
+  return (
+    <ClientDetails
+      onSave={onSave}
+      cliente={clients.find((c) => c.id === id)}
+      onVolver={() => navigate("/vendedor/clientes")}
+      catalogo={catalogo}
+      onAddFrecuente={onAddFrecuente}
+      onDeleteFrecuente={onDeleteFrecuente}
+    />
+  );
 }
 
 export function VendorApp({
@@ -41,8 +86,9 @@ export function VendorApp({
     deleteProduct: deleteFrecuente,
   } = useCatalog(vendorUid);
   const vendedoresAdmin = useAdminVendedores(esAdmin);
-  const [vista, setVista] = useState<Vista>({ tipo: "dashboard" });
   const [busqueda, setBusqueda] = useState("");
+  const { pathname } = useLocation();
+  const navigate = useNavigate();
   // OJO: ningún return antes de terminar TODOS los hooks — la
   // compuerta va después (el orden de hooks no puede cambiar
   // entre renders, p. ej. cuando el estado pasa a "aprobado").
@@ -59,6 +105,17 @@ export function VendorApp({
   const totalPorCobrar = clients.reduce((s, c) => s + deuda(c), 0);
   const m = metricas(clients);
 
+  // Pestaña activa según la ruta (el detalle no marca ninguna,
+  // igual que antes no marcaba ninguna vista).
+  const activa =
+    pathname === "/vendedor"
+      ? "dashboard"
+      : pathname === "/vendedor/clientes"
+        ? "lista"
+        : pathname === "/vendedor/solicitudes"
+          ? "solicitudes"
+          : "ninguna";
+
   // Compuerta de aprobación (después de todos los hooks): sin el
   // visto bueno de un admin (y sin ser admin), el vendedor solo
   // ve la pantalla de espera.
@@ -71,16 +128,16 @@ export function VendorApp({
       <Topbar menu>
         <button
           type="button"
-          className={NavBtnCls(vista.tipo === "dashboard")}
-          onClick={() => setVista({ tipo: "dashboard" })}
+          className={NavBtnCls(activa === "dashboard")}
+          onClick={() => navigate("/vendedor")}
         >
           Dashboard
         </button>
 
         <button
           type="button"
-          className={NavBtnCls(vista.tipo === "lista")}
-          onClick={() => setVista({ tipo: "lista" })}
+          className={NavBtnCls(activa === "lista")}
+          onClick={() => navigate("/vendedor/clientes")}
         >
           Clientes
           {m.clientesConDeuda > 0 ? ` (${m.clientesConDeuda})` : ""}
@@ -89,8 +146,8 @@ export function VendorApp({
         {esAdmin && (
           <button
             type="button"
-            className={NavBtnCls(vista.tipo === "solicitudes")}
-            onClick={() => setVista({ tipo: "solicitudes" })}
+            className={NavBtnCls(activa === "solicitudes")}
+            onClick={() => navigate("/vendedor/solicitudes")}
           >
             Solicitudes
             {pendientesCount > 0 ? ` (${pendientesCount})` : ""}
@@ -112,34 +169,54 @@ export function VendorApp({
             Cargando tus clientes…
           </p>
         </Wrap>
-      ) : vista.tipo === "dashboard" ? (
-        <Dashboard clientes={clients} />
-      ) : vista.tipo === "lista" ? (
-        <ClientList
-          allClients={clients}
-          createClient={createClient}
-          deleteClient={deleteClient}
-          busqueda={busqueda}
-          setBusqueda={setBusqueda}
-          clientes={clientesFiltrados}
-          totalPorCobrar={totalPorCobrar}
-          onAbrir={(id: string) => setVista({ tipo: "detalle", id })}
-        />
-      ) : vista.tipo === "solicitudes" ? (
-        <RequestsPanel
-          vendedores={vendedoresAdmin}
-          miUid={vendorUid}
-          onSetEstado={(uid, e) => void setEstadoVendedor(uid, e)}
-        />
       ) : (
-        <ClientDetails
-          onSave={saveClient}
-          cliente={clients.find((c) => c.id === vista.id)}
-          onVolver={() => setVista({ tipo: "lista" })}
-          catalogo={catalogo}
-          onAddFrecuente={addFrecuente}
-          onDeleteFrecuente={deleteFrecuente}
-        />
+        <Routes>
+          <Route path="/vendedor" element={<Dashboard clientes={clients} />} />
+          <Route
+            path="/vendedor/clientes"
+            element={
+              <ClientList
+                allClients={clients}
+                createClient={createClient}
+                deleteClient={deleteClient}
+                busqueda={busqueda}
+                setBusqueda={setBusqueda}
+                clientes={clientesFiltrados}
+                totalPorCobrar={totalPorCobrar}
+                onAbrir={(id: string) =>
+                  navigate(`/vendedor/clientes/${id}`)
+                }
+              />
+            }
+          />
+          <Route
+            path="/vendedor/clientes/:id"
+            element={
+              <DetalleCliente
+                clients={clients}
+                onSave={saveClient}
+                catalogo={catalogo}
+                onAddFrecuente={addFrecuente}
+                onDeleteFrecuente={deleteFrecuente}
+              />
+            }
+          />
+          <Route
+            path="/vendedor/solicitudes"
+            element={
+              esAdmin ? (
+                <RequestsPanel
+                  vendedores={vendedoresAdmin}
+                  miUid={vendorUid}
+                  onSetEstado={(uid, e) => void setEstadoVendedor(uid, e)}
+                />
+              ) : (
+                <Navigate to="/vendedor" replace />
+              )
+            }
+          />
+          <Route path="*" element={<Navigate to="/vendedor" replace />} />
+        </Routes>
       )}
     </div>
   );

@@ -1,5 +1,6 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { MemoryRouter } from "react-router-dom";
 import { VendorApp } from "../../../src/features/vendor/VendorApp.tsx";
 import { useAuth } from "../../../src/hooks/useAuth.ts";
 import { useClient } from "../../../src/hooks/useClient.tsx";
@@ -127,14 +128,26 @@ const VENDOR_PROPS = {
 beforeEach(() => {
   jest.clearAllMocks();
   __fakeDb.reset();
-  window.history.pushState({}, "", "/");
 });
+
+// VendorApp usa useLocation/useNavigate: siempre va dentro de un
+// Router. La ruta inicial simula entrar (o refrescar) en esa URL.
+function renderVendor(
+  props: React.ComponentProps<typeof VendorApp> = VENDOR_PROPS,
+  ruta = "/vendedor",
+) {
+  return render(
+    <MemoryRouter initialEntries={[ruta]}>
+      <VendorApp {...props} />
+    </MemoryRouter>,
+  );
+}
 
 describe("VendorApp", () => {
   it("un vendedor pendiente solo ve la pantalla de espera", () => {
     setAuth({});
     setClientsHook({ clients: [] });
-    render(<VendorApp {...VENDOR_PROPS} estado="pendiente" />);
+    renderVendor({ ...VENDOR_PROPS, estado: "pendiente" });
 
     expect(screen.getByTestId("await-screen")).toBeInTheDocument();
     expect(
@@ -148,12 +161,17 @@ describe("VendorApp", () => {
   it("al ser aprobado, la pantalla de espera se libera sin volver a montar (regresión: orden de hooks)", () => {
     setAuth({});
     setClientsHook({ clients: [] });
-    const { rerender } = render(
-      <VendorApp {...VENDOR_PROPS} estado="pendiente" />,
-    );
+    const { rerender } = renderVendor({
+      ...VENDOR_PROPS,
+      estado: "pendiente",
+    });
     expect(screen.getByTestId("await-screen")).toBeInTheDocument();
 
-    rerender(<VendorApp {...VENDOR_PROPS} estado="aprobado" />);
+    rerender(
+      <MemoryRouter initialEntries={["/vendedor"]}>
+        <VendorApp {...VENDOR_PROPS} estado="aprobado" />
+      </MemoryRouter>,
+    );
     expect(screen.queryByTestId("await-screen")).not.toBeInTheDocument();
     expect(screen.getByTestId("dashboard")).toBeInTheDocument();
   });
@@ -161,7 +179,7 @@ describe("VendorApp", () => {
   it("un vendedor rechazado ve la pantalla de espera con su estado", () => {
     setAuth({});
     setClientsHook({ clients: [] });
-    render(<VendorApp {...VENDOR_PROPS} estado="rechazado" />);
+    renderVendor({ ...VENDOR_PROPS, estado: "rechazado" });
     expect(screen.getByTestId("await-screen")).toHaveTextContent("rechazado");
   });
 
@@ -169,7 +187,7 @@ describe("VendorApp", () => {
     const user = userEvent.setup();
     setAuth({});
     setClientsHook({ clients: [makeClient({ id: "a1" })] });
-    render(<VendorApp {...VENDOR_PROPS} />);
+    renderVendor();
 
     expect(screen.getByTestId("dashboard")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: /Clientes/ }));
@@ -185,7 +203,7 @@ describe("VendorApp", () => {
         makeClientSinRegistros({ id: "l1", name: "Luis", lastName: "Pérez" }),
       ],
     });
-    render(<VendorApp {...VENDOR_PROPS} />);
+    renderVendor();
 
     await user.click(screen.getByRole("button", { name: /Clientes/ }));
     expect(screen.getByText("Ana López")).toBeInTheDocument();
@@ -200,7 +218,7 @@ describe("VendorApp", () => {
     const user = userEvent.setup();
     setAuth({});
     setClientsHook({ clients: [makeClient({ id: "a1" })] });
-    render(<VendorApp {...VENDOR_PROPS} />);
+    renderVendor();
 
     await user.click(screen.getByRole("button", { name: /Clientes/ }));
     await user.click(screen.getByRole("button", { name: "Ana López" }));
@@ -212,7 +230,7 @@ describe("VendorApp", () => {
   it("mientras cargan los clientes muestra el aviso de carga", () => {
     setAuth({});
     setClientsHook({ clients: [], loading: true });
-    render(<VendorApp {...VENDOR_PROPS} />);
+    renderVendor();
     expect(screen.getByText("Cargando tus clientes…")).toBeInTheDocument();
   });
 
@@ -227,7 +245,7 @@ describe("VendorApp", () => {
     });
     setAuth({});
     setClientsHook({ clients: [] });
-    render(<VendorApp {...VENDOR_PROPS} estado="pendiente" esAdmin />);
+    renderVendor({ ...VENDOR_PROPS, estado: "pendiente", esAdmin: true });
 
     await user.click(
       screen.getByRole("button", { name: /Solicitudes \(1\)/ }),
@@ -238,9 +256,45 @@ describe("VendorApp", () => {
   it("sin ser admin no aparece la pestaña Solicitudes", () => {
     setAuth({});
     setClientsHook({ clients: [] });
-    render(<VendorApp {...VENDOR_PROPS} />);
+    renderVendor();
     expect(
       screen.queryByRole("button", { name: /Solicitudes/ }),
     ).not.toBeInTheDocument();
+  });
+
+  it("entrar directo a /vendedor/clientes muestra la lista sin navegar (refresh)", () => {
+    setAuth({});
+    setClientsHook({ clients: [makeClient({ id: "a1" })] });
+    renderVendor(VENDOR_PROPS, "/vendedor/clientes");
+
+    expect(screen.getByTestId("client-list")).toBeInTheDocument();
+    expect(screen.queryByTestId("dashboard")).not.toBeInTheDocument();
+  });
+
+  it("entrar directo al detalle muestra ese cliente (refresh)", () => {
+    setAuth({});
+    setClientsHook({ clients: [makeClient({ id: "a1" })] });
+    renderVendor(VENDOR_PROPS, "/vendedor/clientes/a1");
+
+    expect(screen.getByTestId("client-details")).toHaveTextContent(
+      "Ana López",
+    );
+  });
+
+  it("una ruta desconocida del vendedor redirige al dashboard", () => {
+    setAuth({});
+    setClientsHook({ clients: [] });
+    renderVendor(VENDOR_PROPS, "/vendedor/loquesea");
+
+    expect(screen.getByTestId("dashboard")).toBeInTheDocument();
+  });
+
+  it("sin ser admin, entrar directo a /vendedor/solicitudes redirige al dashboard", () => {
+    setAuth({});
+    setClientsHook({ clients: [] });
+    renderVendor(VENDOR_PROPS, "/vendedor/solicitudes");
+
+    expect(screen.getByTestId("dashboard")).toBeInTheDocument();
+    expect(screen.queryByTestId("requests-panel")).not.toBeInTheDocument();
   });
 });
