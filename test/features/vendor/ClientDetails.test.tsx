@@ -126,6 +126,26 @@ describe("ClientDetails", () => {
     ).toBeInTheDocument();
   });
 
+  it("Abonar está deshabilitado hasta que escriban el monto", async () => {
+    const user = userEvent.setup();
+    const onSave = jest.fn(async () => {});
+    renderDetails({ onSave });
+
+    const boton = screen.getByRole("button", { name: "Abonar" });
+    const monto = screen.getByPlaceholderText("Monto del abono");
+    expect(boton).toBeDisabled();
+
+    await user.type(monto, "0");
+    expect(boton).toBeDisabled();
+
+    await user.clear(monto);
+    await user.type(monto, "50");
+    expect(boton).toBeEnabled();
+
+    await user.click(boton);
+    expect(onSave).toHaveBeenCalledTimes(1);
+  });
+
   it("los chips de montos rápidos llenan el abono y lo registran", async () => {
     const user = userEvent.setup();
     const onSave = jest.fn(async () => {});

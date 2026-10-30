@@ -366,7 +366,11 @@ export function ClientDetails({
               value={montoPago}
               onChange={(e) => setMontoPago(e.target.value)}
             />
-            <Button variant="success" type="submit">
+            <Button
+              variant="success"
+              type="submit"
+              disabled={!(parseFloat(montoPago) > 0)}
+            >
               Abonar
             </Button>
             {d > 0 && (
