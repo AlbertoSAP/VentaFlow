@@ -144,6 +144,28 @@ describe("ClientList", () => {
     ).toBeInTheDocument();
   });
 
+  it("el botón Agregar está deshabilitado hasta que el teléfono tenga formato válido", async () => {
+    const user = userEvent.setup();
+    renderList();
+
+    const boton = screen.getByRole("button", { name: "Agregar" });
+    const telefono = screen.getByPlaceholderText(
+      /Teléfono \(será su usuario/,
+    );
+    expect(boton).toBeDisabled();
+
+    await user.type(telefono, "123");
+    expect(boton).toBeDisabled();
+
+    await user.clear(telefono);
+    await user.type(telefono, "8888**7777");
+    expect(boton).toBeDisabled();
+
+    await user.clear(telefono);
+    await user.type(telefono, "8888 7777");
+    expect(boton).toBeEnabled();
+  });
+
   it("eliminar cliente con registros muestra el modal de bloqueo y no borra", async () => {
     const user = userEvent.setup();
     const deleteClient = jest.fn(async () => null);

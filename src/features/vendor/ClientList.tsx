@@ -11,6 +11,7 @@ import { cn } from "@/lib/utils";
 import type { Client } from "@/domain/models";
 import { useClientCalculations } from "@/hooks/useClientCalculations";
 import { useFormat } from "@/hooks/useFormat";
+import { useIdentity } from "@/hooks/useIdentity";
 import { useWhatsApp } from "@/hooks/useWhatsApp";
 import { iniciales } from "@/util/Initiales";
 import { MessageCircle, Search } from "lucide-react";
@@ -61,6 +62,7 @@ export function ClientList({
   const [aviso, setAviso] = useState("");
   const { deuda, fullName } = useClientCalculations();
   const { fmtMoney } = useFormat();
+  const { telephoneError } = useIdentity();
   const { mensajeDatosAcceso, whatsAppUrl } = useWhatsApp();
 
   useEffect(() => {
@@ -74,20 +76,27 @@ export function ClientList({
     setFormError("");
     setCreado(null);
     setBusy(true);
-    const result = await createClient({ name, lastName, telephone });
-    setBusy(false);
-    if (!result.ok) {
-      setFormError(result.error);
-      return;
+    try {
+      const result = await createClient({ name, lastName, telephone });
+      if (!result.ok) {
+        setFormError(result.error);
+        return;
+      }
+      setCreado({
+        nombre: fullName(result.client),
+        telephone: result.client.telephone,
+        tempPassword: result.tempPassword,
+      });
+      setName("");
+      setLastName("");
+      setTelephone("");
+    } catch {
+      // createClient no debería lanzar, pero si lo hiciera el botón
+      // no puede quedarse en "Creando…" sin mensaje.
+      setFormError("No se pudo crear el cliente. Inténtalo de nuevo.");
+    } finally {
+      setBusy(false);
     }
-    setCreado({
-      nombre: fullName(result.client),
-      telephone: result.client.telephone,
-      tempPassword: result.tempPassword,
-    });
-    setName("");
-    setLastName("");
-    setTelephone("");
   };
 
   // Eliminar exige pasar por el modal: si el cliente tiene registros
@@ -158,7 +167,10 @@ export function ClientList({
               value={telephone}
               onChange={(e) => setTelephone(e.target.value)}
             />
-            <Button type="submit" disabled={busy}>
+            <Button
+              type="submit"
+              disabled={busy || telephoneError(telephone) !== null}
+            >
               {busy ? "Creando…" : "Agregar"}
             </Button>
           </div>

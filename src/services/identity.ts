@@ -31,3 +31,19 @@ export function generateTempPassword(): string {
     out += chars[Math.floor(Math.random() * chars.length)];
   return out;
 }
+
+/**
+ * Validación del teléfono para crear un cliente. El botón de
+ * guardar se deshabilita mientras esto no sea null, y createClient
+ * lo usa como segunda barrera. Separadores (espacios, guiones) y
+ * el + inicial se toleran; cualquier otro carácter es inválido.
+ * Un número corto y uno con caracteres inválidos dan mensajes
+ * distintos: el usuario debe saber cuál es su caso.
+ */
+export function telephoneError(telephone: string): string | null {
+  if (/[^0-9\s\-+]/.test(telephone))
+    return "El teléfono solo debe contener números.";
+  if (telephone.replace(/\D/g, "").length < 8)
+    return "El teléfono debe tener al menos 8 dígitos: será el usuario del cliente para entrar.";
+  return null;
+}

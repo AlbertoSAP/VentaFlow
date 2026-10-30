@@ -67,7 +67,7 @@ de los hooks (lo que devuelve el hook son funciones, no valores).
 | `useClientCalculations` | `fullName`, `totalItems`, `totalPagos`, `deuda`, `saldoAFavor`, `ultimosMovimientos` | ClientList, ClientDetails, ClientApp, Totals, VendorApp (búsqueda) |
 | `useFormat` | `fmtMoney`, `fmtFecha` | Casi todos los componentes |
 | `useWhatsApp` | `whatsAppPhone`, `whatsAppUrl`, `mensajeEstadoCuenta`, `mensajeDatosAcceso` | ClientList, ClientDetails |
-| `useIdentity` | `uid`, `generateEmailAlias`, `generateTempPassword` | ClientDetails, useClient, useCatalog, useAuth |
+| `useIdentity` | `uid`, `generateEmailAlias`, `generateTempPassword`, `telephoneError` (formato del teléfono: solo números con separadores y mínimo 8 dígitos) | ClientDetails, ClientList (botón deshabilitado), useClient, useCatalog, useAuth |
 | `useMetrics` | `metricas(clientes)` memoizada (total por cobrar, clientes con deuda, % recuperado) | Dashboard, VendorApp |
 
 ## De dónde vino cada cosa (antes: `src/storage.ts`)
