@@ -4,7 +4,7 @@ import { Topbar } from "@/components/shared/Topbar";
 import { Wrap } from "@/components/shared/Wrap";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { EstadoVendedor } from "@/storage";
+import { EstadoVendedor } from "@/domain/models";
 import { Clock, UserCheck } from "lucide-react";
 
 export function AwaitScreen({

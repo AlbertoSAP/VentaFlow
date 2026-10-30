@@ -1,5 +1,6 @@
-import { EstadoVendedor, VendorConEstado } from "@/storage";
+import type { EstadoVendedor, VendorConEstado } from "@/domain/models";
 import { Button } from "../ui/button";
+import { useFormat } from "@/hooks/useFormat";
 import { Row } from "./Row";
 
 export default function RequestCard({
@@ -11,6 +12,7 @@ export default function RequestCard({
   onClick: (uid: string, estado: EstadoVendedor) => void;
   state: EstadoVendedor;
 }) {
+  const { fmtFecha } = useFormat();
   // Transiciones con el mismo significado que tenía el panel antes
   // de la extracción: pendiente → aprobar/rechazar, aprobado →
   // revocar (vuelve a pendiente, no a rechazado), rechazado → aprobar.
@@ -58,6 +60,7 @@ export default function RequestCard({
               </Button>
             )}
           </>,
+          fmtFecha,
         ),
       )}
     </div>

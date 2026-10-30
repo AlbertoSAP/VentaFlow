@@ -7,20 +7,15 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
-import {
+import type {
   CatalogProduct,
   Client,
-  deuda,
   FiadoItem,
-  fmtFecha,
-  fmtMoney,
-  fullName,
-  mensajeEstadoCuenta,
-  totalItems,
-  totalPagos,
-  uid,
-  whatsAppUrl,
-} from "@/storage";
+} from "@/domain/models";
+import { useClientCalculations } from "@/hooks/useClientCalculations";
+import { useFormat } from "@/hooks/useFormat";
+import { useIdentity } from "@/hooks/useIdentity";
+import { useWhatsApp } from "@/hooks/useWhatsApp";
 import { MessageCircle } from "lucide-react";
 import { FormEvent, useEffect, useState } from "react";
 
@@ -52,6 +47,11 @@ export function ClientDetails({
   const [frecPrecio, setFrecPrecio] = useState("");
   const [frecuenteAQuitar, setFrecuenteAQuitar] =
     useState<CatalogProduct | null>(null);
+  const { deuda, fullName, totalItems, totalPagos } =
+    useClientCalculations();
+  const { fmtFecha, fmtMoney } = useFormat();
+  const { uid } = useIdentity();
+  const { mensajeEstadoCuenta, whatsAppUrl } = useWhatsApp();
 
   // El aviso de "guardado" se quita solo a los pocos segundos.
   useEffect(() => {

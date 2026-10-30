@@ -1,35 +1,26 @@
+/* Pruebas puras: no montan Firebase falso, solo dominio, formato,
+ * identidad y WhatsApp. */
+
+import { fmtMoney, fmtFecha } from "../src/lib/format";
 import {
-  fmtMoney,
-  fmtFecha,
   generateEmailAlias,
   generateTempPassword,
-  subscribeEstadoVendedor,
-  getEsAdmin,
-  setEstadoVendedor,
-  subscribeVendedoresAdmin,
+} from "../src/services/identity";
+import {
   whatsAppPhone,
   whatsAppUrl,
   mensajeEstadoCuenta,
   mensajeDatosAcceso,
+} from "../src/services/whatsapp";
+import {
   ultimosMovimientos,
   fullName,
   totalItems,
   totalPagos,
   deuda,
   saldoAFavor,
-  getUserRole,
-  writeClient,
-  deleteClientRecord,
-  subscribeVendorClients,
-  subscribeOwnClient,
-  type Client,
-} from "../src/storage.ts";
-import { __fakeDb } from "./fakes/firebaseDatabase";
+} from "../src/domain/calculations";
 import { makeClient } from "./fixtures";
-
-beforeEach(() => {
-  __fakeDb.reset();
-});
 
 describe("utilidades de formato", () => {
   it("fmtMoney formatea córdobas con 2 decimales", () => {
@@ -53,38 +44,6 @@ describe("utilidades de formato", () => {
     expect(generateEmailAlias("50588887777")).toBe(
       "flowventas13+88887777@gmail.com",
     );
-  });
-
-  it("el estado de aprobación por defecto es pendiente y cambia con setEstadoVendedor", async () => {
-    const vistos: string[] = [];
-    const off = subscribeEstadoVendedor("vendor-9", (e) => vistos.push(e));
-    expect(vistos).toEqual(["pendiente"]);
-    off();
-    await setEstadoVendedor("vendor-9", "aprobado");
-    const data = __fakeDb.getData() as any;
-    expect(data.aprobaciones["vendor-9"].estado).toBe("aprobado");
-  });
-
-  it("getEsAdmin solo es true si el nodo admins lo marca", async () => {
-    __fakeDb.setData({ admins: { root1: true } });
-    await expect(getEsAdmin("root1")).resolves.toBe(true);
-    await expect(getEsAdmin("vendor-9")).resolves.toBe(false);
-  });
-
-  it("subscribeVendedoresAdmin combina perfiles con su estado", () => {
-    __fakeDb.setData({
-      vendedores: {
-        v1: { name: "Uno", email: "uno@x.com", created: 100 },
-        v2: { name: "Dos", email: "dos@x.com", created: 200 },
-      },
-      aprobaciones: { v1: { estado: "aprobado" } },
-    });
-    let lista: any[] = [];
-    const off = subscribeVendedoresAdmin((l) => (lista = l));
-    off();
-    expect(lista.map((v) => v.id)).toEqual(["v2", "v1"]); // más reciente primero
-    expect(lista.find((v) => v.id === "v1").estado).toBe("aprobado");
-    expect(lista.find((v) => v.id === "v2").estado).toBe("pendiente");
   });
 
   it("whatsAppPhone normaliza al formato internacional de Nicaragua", () => {
@@ -195,78 +154,5 @@ describe("cálculos de la cuenta", () => {
     });
     expect(saldoAFavor(conExcedente)).toBe(80); // abonó 200 de 120 fiados
     expect(saldoAFavor(makeClient({ items: [], pagos: [] }))).toBe(0);
-  });
-});
-
-describe("roles y persistencia (RTDB simulada)", () => {
-  it("getUserRole distingue vendedor, cliente y desconocido", async () => {
-    __fakeDb.setData({
-      vendedores: { "uid-v": { name: "Juan", email: "j@x.com", created: 1 } },
-      clientes: {
-        "uid-c": {
-          idAuthVendedor: "uid-v",
-          name: "Ana",
-          lastName: "López",
-          email: "flowventas13+88887777@gmail.com",
-          telephone: "88887777",
-          created: 1,
-          items: [],
-          pagos: [],
-        },
-      },
-    });
-    await expect(getUserRole("uid-v")).resolves.toBe("vendedor");
-    await expect(getUserRole("uid-c")).resolves.toBe("cliente");
-    await expect(getUserRole("uid-x")).resolves.toBeNull();
-  });
-
-  it("subscribeVendorClients solo trae los clientes de ese vendedor, con su id", () => {
-    __fakeDb.setData({
-      clientes: {
-        c1: { idAuthVendedor: "vendor-1", name: "Uno", items: [], pagos: [] },
-        c2: { idAuthVendedor: "vendor-2", name: "Dos", items: [], pagos: [] },
-        c3: { idAuthVendedor: "vendor-1", name: "Tres", items: [], pagos: [] },
-      },
-    });
-    const cb = jest.fn();
-    subscribeVendorClients("vendor-1", cb);
-    const clients: Client[] = cb.mock.calls[0][0];
-    expect(clients.map((c) => c.id).sort()).toEqual(["c1", "c3"]);
-    expect(clients.every((c) => c.idAuthVendedor === "vendor-1")).toBe(true);
-  });
-
-  it("writeClient guarda el registro bajo el UID del cliente, sin duplicar el id adentro", async () => {
-    const client = makeClient({ id: "uid-cliente-1" });
-    await writeClient(client);
-    const stored = __fakeDb.getData().clientes["uid-cliente-1"];
-    expect(stored).toBeDefined();
-    expect(stored.id).toBeUndefined();
-    expect(stored.idAuthVendedor).toBe("vendor-1");
-    expect(stored.name).toBe("Ana");
-  });
-
-  it("subscribeOwnClient devuelve el cliente o null si no existe", () => {
-    __fakeDb.setData({
-      clientes: {
-        "uid-c": { idAuthVendedor: "v", name: "Ana", items: [], pagos: [] },
-      },
-    });
-    const cb = jest.fn();
-    subscribeOwnClient("uid-c", cb);
-    expect(cb.mock.calls[0][0]).toMatchObject({ id: "uid-c", name: "Ana" });
-
-    const cb2 = jest.fn();
-    subscribeOwnClient("uid-inexistente", cb2);
-    expect(cb2.mock.calls[0][0]).toBeNull();
-  });
-
-  it("deleteClientRecord elimina el registro y su índice", async () => {
-    __fakeDb.setData({
-      clientes: { "uid-c": { idAuthVendedor: "v", name: "Ana" } },
-      clienteIndex: { "uid-c": "v" },
-    });
-    await deleteClientRecord("uid-c");
-    expect(__fakeDb.getData().clientes["uid-c"]).toBeUndefined();
-    expect(__fakeDb.getData().clienteIndex["uid-c"]).toBeUndefined();
   });
 });

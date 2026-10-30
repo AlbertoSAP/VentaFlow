@@ -7,14 +7,9 @@ import { Wrap } from "@/components/shared/Wrap";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
-import {
-  Client,
-  deuda,
-  fmtFecha,
-  fmtMoney,
-  subscribeOwnClient,
-} from "@/storage";
-import { useEffect, useState } from "react";
+import { useClientCalculations } from "@/hooks/useClientCalculations";
+import { useFormat } from "@/hooks/useFormat";
+import { useOwnClient } from "@/hooks/useOwnClient";
 
 interface ClientProps {
   clientUid: string;
@@ -22,9 +17,9 @@ interface ClientProps {
 }
 
 export default function ClientApp({ clientUid, onLogout }: ClientProps) {
-  const [cliente, setCliente] = useState<Client | null | undefined>(undefined);
-
-  useEffect(() => subscribeOwnClient(clientUid, setCliente), [clientUid]);
+  const cliente = useOwnClient(clientUid);
+  const { deuda } = useClientCalculations();
+  const { fmtFecha, fmtMoney } = useFormat();
 
   return (
     <div className="min-h-screen">

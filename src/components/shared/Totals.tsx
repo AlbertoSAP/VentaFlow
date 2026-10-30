@@ -1,17 +1,15 @@
 /* ===== Piezas visuales compartidas (Tailwind + shadcn/ui) ===== */
 
-import {
-  Client,
-  deuda,
-  fmtMoney,
-  saldoAFavor,
-  totalItems,
-  totalPagos,
-} from "@/storage";
+import type { Client } from "@/domain/models";
+import { useClientCalculations } from "@/hooks/useClientCalculations";
+import { useFormat } from "@/hooks/useFormat";
 import { deudaCls, moneyCls, pagadoCls } from "./TotalBox";
 import { cn } from "@/lib/utils";
 
 export function Totals({ cliente }: { cliente: Client }) {
+  const { deuda, saldoAFavor, totalItems, totalPagos } =
+    useClientCalculations();
+  const { fmtMoney } = useFormat();
   const d = deuda(cliente);
   const sf = saldoAFavor(cliente);
   return (

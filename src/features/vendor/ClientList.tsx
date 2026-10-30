@@ -8,14 +8,10 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
-import {
-  Client,
-  deuda,
-  fmtMoney,
-  fullName,
-  mensajeDatosAcceso,
-  whatsAppUrl,
-} from "@/storage";
+import type { Client } from "@/domain/models";
+import { useClientCalculations } from "@/hooks/useClientCalculations";
+import { useFormat } from "@/hooks/useFormat";
+import { useWhatsApp } from "@/hooks/useWhatsApp";
 import { iniciales } from "@/util/Initiales";
 import { MessageCircle, Search } from "lucide-react";
 import { FormEvent, useEffect, useState } from "react";
@@ -63,6 +59,9 @@ export function ClientList({
   const [clienteAEliminar, setClienteAEliminar] = useState<Client | null>(null);
   const [avisoEliminar, setAvisoEliminar] = useState<Client | null>(null);
   const [aviso, setAviso] = useState("");
+  const { deuda, fullName } = useClientCalculations();
+  const { fmtMoney } = useFormat();
+  const { mensajeDatosAcceso, whatsAppUrl } = useWhatsApp();
 
   useEffect(() => {
     if (!aviso) return;

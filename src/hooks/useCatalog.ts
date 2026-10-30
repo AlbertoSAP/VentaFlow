@@ -1,29 +1,29 @@
 import { useEffect, useState } from "react";
-import {
-  uid,
-  subscribeCatalog,
-  writeCatalogProduct,
-  deleteCatalogProduct,
-  type CatalogProduct,
-} from "../storage.ts";
+import type { CatalogProduct } from "../domain/models";
+import { catalogRepository } from "../data/firebaseRepositories";
+import type { CatalogoRepository } from "../data/repositories";
+import { uid } from "../services/identity";
 
 /**
  * Catálogo de productos frecuentes del vendedor: lo que fía seguido,
  * para registrar un fiado con un toque en vez de escribirlo todo.
  */
-export function useCatalog(vendorUid: string) {
+export function useCatalog(
+  vendorUid: string,
+  repo: CatalogoRepository = catalogRepository,
+) {
   const [products, setProducts] = useState<CatalogProduct[]>([]);
 
-  useEffect(
-    () => subscribeCatalog(vendorUid, setProducts),
-    [vendorUid],
-  );
+  useEffect(() => repo.subscribeCatalog(vendorUid, setProducts), [
+    vendorUid,
+    repo,
+  ]);
 
   const addProduct = async (
     descripcion: string,
     precio: number,
   ): Promise<void> => {
-    await writeCatalogProduct(vendorUid, {
+    await repo.writeCatalogProduct(vendorUid, {
       id: uid(),
       descripcion,
       precio,
@@ -31,7 +31,7 @@ export function useCatalog(vendorUid: string) {
   };
 
   const deleteProduct = async (productId: string): Promise<void> => {
-    await deleteCatalogProduct(vendorUid, productId);
+    await repo.deleteCatalogProduct(vendorUid, productId);
   };
 
   return { products, addProduct, deleteProduct };

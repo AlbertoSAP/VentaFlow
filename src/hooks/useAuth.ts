@@ -7,15 +7,16 @@ import {
   type User,
 } from "firebase/auth";
 import { auth } from "../firebase.ts";
+import type { EstadoVendedor, Rol } from "../domain/models";
 import {
-  getUserRole,
-  writeVendorProfile,
-  generateEmailAlias,
-  getEsAdmin,
-  subscribeEstadoVendedor,
-  type Rol,
-  type EstadoVendedor,
-} from "../storage.ts";
+  approvalsRepository,
+  vendorsRepository,
+} from "../data/firebaseRepositories";
+import type {
+  AprobacionesRepository,
+  VendedoresRepository,
+} from "../data/repositories";
+import { generateEmailAlias } from "../services/identity";
 
 export function mapAuthError(e: unknown): string {
   const code = (e as { code?: string })?.code ?? "";
@@ -39,7 +40,14 @@ export function mapAuthError(e: unknown): string {
   }
 }
 
-export const useAuth = () => {
+interface AuthDeps {
+  vendors?: VendedoresRepository;
+  approvals?: AprobacionesRepository;
+}
+
+export const useAuth = (deps: AuthDeps = {}) => {
+  const vendors = deps.vendors ?? vendorsRepository;
+  const approvals = deps.approvals ?? approvalsRepository;
   const [user, setUser] = useState<User | null>(null);
   const [role, setRole] = useState<Rol | null>(null);
   const [resolving, setResolving] = useState(true);
@@ -56,19 +64,19 @@ export const useAuth = () => {
         return;
       }
       setResolving(true);
-      let r = await getUserRole(u.uid);
+      let r = await vendors.getUserRole(u.uid);
       // Al registrarse, el perfil puede tardar un instante en escribirse:
       // se reintenta una vez antes de concluir que no hay rol.
       if (!r && !cancelled) {
         await new Promise((res) => setTimeout(res, 900));
-        r = await getUserRole(u.uid);
+        r = await vendors.getUserRole(u.uid);
       }
       if (!cancelled) {
         setRole(r);
         setResolving(false);
       }
     });
-  }, []);
+  }, [vendors]);
 
   // Aprobación: un vendedor nuevo queda "pendiente" hasta que un
   // admin lo apruebe; el estado se escucha en vivo (si lo aprueban
@@ -81,15 +89,15 @@ export const useAuth = () => {
       return;
     }
     let activo = true;
-    void getEsAdmin(user.uid).then((v) => {
+    void vendors.getEsAdmin(user.uid).then((v) => {
       if (activo) setEsAdmin(v);
     });
-    const off = subscribeEstadoVendedor(user.uid, setEstado);
+    const off = approvals.subscribeEstadoVendedor(user.uid, setEstado);
     return () => {
       activo = false;
       off();
     };
-  }, [user, role]);
+  }, [user, role, approvals, vendors]);
 
   /** Registro de vendedor: crea la cuenta Auth y su perfil en `vendedores/{uid}` */
   const registerVendor = async (
@@ -102,7 +110,7 @@ export const useAuth = () => {
       email.trim(),
       password,
     );
-    await writeVendorProfile({
+    await vendors.writeVendorProfile({
       id: cred.user.uid,
       name: name.trim(),
       email: email.trim(),
