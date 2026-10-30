@@ -5,15 +5,10 @@ import {
   Users,
   Wallet,
 } from "lucide-react";
-import {
-  fmtMoney,
-  fmtFecha,
-  totalItems,
-  totalPagos,
-  deuda,
-  fullName,
-  type Client,
-} from "./storage.ts";
+import type { Client } from "@/domain/models";
+import { useClientCalculations } from "@/hooks/useClientCalculations";
+import { useFormat } from "@/hooks/useFormat";
+import { useMetrics } from "@/hooks/useMetrics";
 import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 
@@ -26,23 +21,12 @@ interface Actividad {
   desc?: string;
 }
 
-export function metricas(clientes: Client[]) {
-  const totalPorCobrar = clientes.reduce((s, c) => s + deuda(c), 0);
-  const clientesConDeuda = clientes.filter((c) => deuda(c) > 0).length;
-  const totalAbonado = clientes.reduce((s, c) => s + totalPagos(c), 0);
-  const totalFiado = clientes.reduce((s, c) => s + totalItems(c), 0);
-  const tasaRecuperacion =
-    totalFiado > 0 ? (totalAbonado / totalFiado) * 100 : 0;
-  return {
-    totalPorCobrar,
-    clientesConDeuda,
-    totalAbonado,
-    totalFiado,
-    tasaRecuperacion,
-  };
-}
-
-function actividadReciente(clientes: Client[], limite = 8): Actividad[] {
+// metricas vive en domain/calculations y se alcanza con useMetrics.
+function actividadReciente(
+  clientes: Client[],
+  fullName: (c: Client) => string,
+  limite = 8,
+): Actividad[] {
   const acts: Actividad[] = [];
   for (const c of clientes) {
     for (const p of c.pagos || [])
@@ -98,16 +82,21 @@ function MetricCard({
 }
 
 export default function Dashboard({ clientes }: Props) {
-  const m = useMemo(() => metricas(clientes), [clientes]);
+  const m = useMetrics(clientes);
+  const { deuda, fullName, totalPagos } = useClientCalculations();
+  const { fmtFecha, fmtMoney } = useFormat();
   const topDeudores = useMemo(
     () =>
       [...clientes]
         .filter((c) => deuda(c) > 0)
         .sort((a, b) => deuda(b) - deuda(a))
         .slice(0, 5),
-    [clientes],
+    [clientes, deuda],
   );
-  const acts = useMemo(() => actividadReciente(clientes), [clientes]);
+  const acts = useMemo(
+    () => actividadReciente(clientes, fullName),
+    [clientes, fullName],
+  );
 
   return (
     <main className="mx-auto flex w-full max-w-5xl flex-col gap-5 px-4 pt-6 pb-16">

@@ -1,14 +1,14 @@
-import Dashboard, { metricas } from "@/Dashboard";
+import Dashboard from "@/Dashboard";
 import { useAdminVendedores } from "@/hooks/useAdmin";
 import { useCatalog } from "@/hooks/useCatalog";
 import { useClient } from "@/hooks/useClient";
-import {
-  deuda,
+import { useClientCalculations } from "@/hooks/useClientCalculations";
+import { useMetrics } from "@/hooks/useMetrics";
+import type {
+  CatalogProduct,
+  Client,
   EstadoVendedor,
-  fullName,
-  setEstadoVendedor,
-} from "@/storage";
-import type { CatalogProduct, Client } from "@/storage";
+} from "@/domain/models";
 import { useMemo, useState } from "react";
 import {
   Navigate,
@@ -85,10 +85,13 @@ export function VendorApp({
     addProduct: addFrecuente,
     deleteProduct: deleteFrecuente,
   } = useCatalog(vendorUid);
-  const vendedoresAdmin = useAdminVendedores(esAdmin);
+  const { vendedores: vendedoresAdmin, setEstadoVendedor } =
+    useAdminVendedores(esAdmin);
   const [busqueda, setBusqueda] = useState("");
   const { pathname } = useLocation();
   const navigate = useNavigate();
+  const { fullName } = useClientCalculations();
+  const m = useMetrics(clients);
   // OJO: ningún return antes de terminar TODOS los hooks — la
   // compuerta va después (el orden de hooks no puede cambiar
   // entre renders, p. ej. cuando el estado pasa a "aprobado").
@@ -100,10 +103,9 @@ export function VendorApp({
   const clientesFiltrados = useMemo(() => {
     const q = busqueda.trim().toLowerCase();
     return clients.filter((c) => !q || fullName(c).toLowerCase().includes(q));
-  }, [clients, busqueda]);
+  }, [clients, busqueda, fullName]);
 
-  const totalPorCobrar = clients.reduce((s, c) => s + deuda(c), 0);
-  const m = metricas(clients);
+  const totalPorCobrar = m.totalPorCobrar;
 
   // Pestaña activa según la ruta (el detalle no marca ninguna,
   // igual que antes no marcaba ninguna vista).

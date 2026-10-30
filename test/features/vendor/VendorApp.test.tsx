@@ -31,14 +31,10 @@ jest.mock("@/components/shared/Wrap", () => ({
   ),
 }));
 
-jest.mock("@/Dashboard", () => {
-  const actual = jest.requireActual("@/Dashboard");
-  return {
-    __esModule: true,
-    default: () => <div data-testid="dashboard" />,
-    metricas: actual.metricas,
-  };
-});
+jest.mock("@/Dashboard", () => ({
+  __esModule: true,
+  default: () => <div data-testid="dashboard" />,
+}));
 
 jest.mock("../../../src/features/vendor/ClientList.tsx", () => ({
   ClientList: ({

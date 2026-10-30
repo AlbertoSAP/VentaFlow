@@ -1,4 +1,4 @@
-import { EstadoVendedor, VendorConEstado } from "@/storage";
+import { EstadoVendedor, VendorConEstado } from "@/domain/models";
 
 export const filterForIdAndState = ({
   state,

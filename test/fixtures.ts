@@ -1,4 +1,4 @@
-import type { Client } from "../src/storage.ts";
+import type { Client } from "../src/domain/models";
 
 let seq = 0;
 

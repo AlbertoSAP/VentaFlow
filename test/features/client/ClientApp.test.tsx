@@ -1,23 +1,20 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { makeClient } from "../../fixtures.ts";
+import type { Client } from "../../../src/domain/models";
 import ClientApp from "../../../src/features/client/ClientApp.tsx";
 
-// Hijos mockeados: cada uno tiene sus propias pruebas. La suscripción
-// al registro se controla por prueba (nunca responde, responde null o
-// responde con el cliente).
-const mockSubscribe = jest.fn(
-  (_uid: string, _cb: (c: unknown) => void) => () => {},
+// Hijos mockeados: cada uno tiene sus propias pruebas. El hook del
+// registro se controla por prueba (undefined = cargando, null = sin
+// registro, o el cliente).
+const mockUseOwnClient = jest.fn(
+  (_uid: string): Client | null | undefined => undefined,
 );
 
-jest.mock("@/storage", () => {
-  const actual = jest.requireActual("@/storage");
-  return {
-    ...actual,
-    subscribeOwnClient: (...args: unknown[]) =>
-      (mockSubscribe as (...a: unknown[]) => unknown)(...args),
-  };
-});
+jest.mock("@/hooks/useOwnClient", () => ({
+  useOwnClient: (...args: unknown[]) =>
+    (mockUseOwnClient as (...a: unknown[]) => unknown)(...args),
+}));
 
 jest.mock("@/components/shared/Topbar", () => ({
   Topbar: ({ children }: { children?: React.ReactNode }) => (
@@ -60,7 +57,7 @@ function renderClientApp(
 
 beforeEach(() => {
   jest.clearAllMocks();
-  mockSubscribe.mockImplementation(() => () => {});
+  mockUseOwnClient.mockImplementation(() => undefined);
 });
 
 describe("ClientApp (vista del cliente, solo lectura)", () => {
@@ -70,10 +67,7 @@ describe("ClientApp (vista del cliente, solo lectura)", () => {
   });
 
   it("sin registro muestra que no fue encontrado", () => {
-    mockSubscribe.mockImplementation((_uid, cb) => {
-      (cb as (c: null) => void)(null);
-      return () => {};
-    });
+    mockUseOwnClient.mockReturnValue(null);
     renderClientApp();
     expect(
       screen.getByText("Tu registro no fue encontrado."),
@@ -81,10 +75,7 @@ describe("ClientApp (vista del cliente, solo lectura)", () => {
   });
 
   it("muestra su estado de cuenta sin controles de edición", () => {
-    mockSubscribe.mockImplementation((_uid, cb) => {
-      (cb as (c: typeof CLIENTE) => void)(CLIENTE);
-      return () => {};
-    });
+    mockUseOwnClient.mockReturnValue(CLIENTE);
     renderClientApp();
 
     expect(screen.getByText(/Hola, Ana/)).toBeInTheDocument();
@@ -104,25 +95,19 @@ describe("ClientApp (vista del cliente, solo lectura)", () => {
   });
 
   it("sin abonos no muestra la tarjeta de abonos", () => {
-    mockSubscribe.mockImplementation((_uid, cb) => {
-      (cb as (c: typeof CLIENTE) => void)({
-        ...CLIENTE,
-        pagos: [],
-      });
-      return () => {};
+    mockUseOwnClient.mockReturnValue({
+      ...CLIENTE,
+      pagos: [],
     });
     renderClientApp();
     expect(screen.queryByText("Mis abonos")).not.toBeInTheDocument();
   });
 
   it("sin productos muestra que aún no tiene fiados", () => {
-    mockSubscribe.mockImplementation((_uid, cb) => {
-      (cb as (c: typeof CLIENTE) => void)({
-        ...CLIENTE,
-        items: [],
-        pagos: [],
-      });
-      return () => {};
+    mockUseOwnClient.mockReturnValue({
+      ...CLIENTE,
+      items: [],
+      pagos: [],
     });
     renderClientApp();
     expect(screen.getByText("Sin productos registrados.")).toBeInTheDocument();

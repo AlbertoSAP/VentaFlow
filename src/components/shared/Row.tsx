@@ -1,10 +1,13 @@
-import { fmtFecha, VendorConEstado } from "@/storage";
+import type { VendorConEstado } from "@/domain/models";
 import { iniciales } from "@/util/Initiales";
 import { ReactNode } from "react";
 
+// Función pura de render (no un componente): quien la llama es un
+// componente y le pasa fmtFecha desde useFormat.
 export const Row = (
   { id, name, email, created }: VendorConEstado,
   acciones: ReactNode,
+  fmtFecha: (ts: number) => string,
 ) => (
   <div
     key={id}

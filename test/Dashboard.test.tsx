@@ -1,5 +1,6 @@
 import { render, screen } from "@testing-library/react";
-import Dashboard, { metricas } from "../src/Dashboard.tsx";
+import Dashboard from "../src/Dashboard.tsx";
+import { metricas } from "../src/domain/calculations";
 import { makeClient, makeClientSinDeuda, makeClientSinRegistros } from "./fixtures";
 
 describe("metricas", () => {

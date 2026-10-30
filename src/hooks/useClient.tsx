@@ -7,15 +7,13 @@ import {
   signOut,
 } from "firebase/auth";
 import { firebaseConfig } from "../firebase.ts";
+import type { Client } from "../domain/models";
+import { clientsRepository } from "../data/firebaseRepositories";
+import type { ClientesRepository } from "../data/repositories";
 import {
-  subscribeVendorClients,
-  writeClient,
-  writeClientIndex,
-  deleteClientRecord,
   generateEmailAlias,
   generateTempPassword,
-  type Client,
-} from "../storage.ts";
+} from "../services/identity";
 
 export type CreateClientResult =
   | { ok: true; client: Client; tempPassword: string }
@@ -42,18 +40,21 @@ function mapCreateError(e: unknown): string {
  * (createUserWithEmailAndPassword inicia sesión como el usuario nuevo
  * en la app donde se llama).
  */
-export const useClient = (vendorUid: string) => {
+export const useClient = (
+  vendorUid: string,
+  repo: ClientesRepository = clientsRepository,
+) => {
   const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (!vendorUid) return;
     setLoading(true);
-    return subscribeVendorClients(vendorUid, (list) => {
+    return repo.subscribeVendorClients(vendorUid, (list) => {
       setClients(list);
       setLoading(false);
     });
-  }, [vendorUid]);
+  }, [vendorUid, repo]);
 
   const createClient = async ({
     name,
@@ -97,8 +98,8 @@ export const useClient = (vendorUid: string) => {
       };
 
       try {
-        await writeClient(client);
-        await writeClientIndex(client.id, vendorUid);
+        await repo.writeClient(client);
+        await repo.writeClientIndex(client.id, vendorUid);
       } catch (dbError) {
         // Compensación: si el registro no se pudo guardar, se borra la
         // cuenta Auth recién creada para no dejar cuentas huérfanas.
@@ -140,7 +141,7 @@ export const useClient = (vendorUid: string) => {
       return `No se puede eliminar a ${name}: tiene productos fiados o abonos registrados.`;
 
     try {
-      await deleteClientRecord(id);
+      await repo.deleteClientRecord(id);
       return null;
     } catch {
       return "No se pudo eliminar. Inténtalo de nuevo.";
@@ -149,7 +150,7 @@ export const useClient = (vendorUid: string) => {
 
   /** Guarda el registro completo de un cliente (fiados, abonos, etc.) */
   const saveClient = async (client: Client): Promise<void> => {
-    await writeClient(client);
+    await repo.writeClient(client);
   };
 
   return { clients, loading, createClient, deleteClient, saveClient };

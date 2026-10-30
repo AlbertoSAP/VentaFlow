@@ -3,7 +3,7 @@
 import RequestCard from "@/components/shared/RequestCard";
 import { Wrap } from "@/components/shared/Wrap";
 import { filterForIdAndState } from "@/lib/filterForIdAndState";
-import { EstadoVendedor, VendorConEstado } from "@/storage";
+import { EstadoVendedor, VendorConEstado } from "@/domain/models";
 
 export function RequestsPanel({
   vendedores,
