@@ -373,15 +373,14 @@ export function ClientDetails({
             >
               Abonar
             </Button>
-            {d > 0 && (
-              <Button
-                variant="outline"
-                type="button"
-                onClick={() => setConfirmarSaldar(true)}
-              >
-                Saldar todo
-              </Button>
-            )}
+            <Button
+              variant="outline"
+              type="button"
+              disabled={d <= 0}
+              onClick={() => setConfirmarSaldar(true)}
+            >
+              Saldar todo
+            </Button>
           </div>
           <div className="mt-4 flex flex-wrap items-center gap-2">
             <span className="text-xs text-muted-foreground">
