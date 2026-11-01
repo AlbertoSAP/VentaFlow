@@ -3,6 +3,7 @@ import { MemoryRouter } from "react-router-dom";
 import { Access } from "../../../src/features/access/Access.tsx";
 import { useAuth } from "../../../src/hooks/useAuth.ts";
 import ClientApp from "@/features/client/ClientApp.tsx";
+import { VendorApp } from "../../../src/features/vendor/VendorApp.tsx";
 import { latestMockCall } from "../../testHelpers.ts";
 import { act } from "react";
 
@@ -31,9 +32,8 @@ jest.mock("../../../src/features/access/ClientAuthScreen.tsx", () => ({
   ClientAuthScreen: () => <div data-testid="client-auth" />,
 }));
 
-jest.mock("../../../src/features/vendor/VendorApp.tsx", () => ({
-  VendorApp: () => <div data-testid="vendor-app" />,
-}));
+jest.mock("../../../src/features/vendor/VendorApp.tsx");
+const mockVendorApp = VendorApp as jest.Mock;
 
 jest.mock("../../../src/features/client/ClientApp.tsx");
 const mockClientApp = ClientApp as jest.Mock;
@@ -104,7 +104,20 @@ describe("Access (puerta de acceso)", () => {
   it("con sesión de vendedor muestra la app del vendedor", () => {
     setAuth({ user: { uid: "vendor-1" }, role: "vendedor" });
     renderAccess();
-    expect(screen.getByTestId("vendor-app")).toBeInTheDocument();
+    expect(mockVendorApp).toHaveBeenCalled();
+  });
+
+  it("retorna /vendedor cuando el vendedor cierra sesion", async () => {
+    setAuth({ user: { uid: "vendor-1" }, role: "vendedor" });
+    renderAccess();
+
+    const { onLogout } = latestMockCall(mockVendorApp)[0];
+
+    await act(async () => {
+      await onLogout();
+    });
+
+    expect(mockNavigate).toHaveBeenCalledWith("/vendedor");
   });
 
   it("con sesión de cliente muestra su estado de cuenta", () => {

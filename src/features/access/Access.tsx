@@ -27,6 +27,11 @@ export function Access() {
     navigate("/");
   };
 
+  const logoutVendorHandle = async () => {
+    await logout();
+    navigate("/vendedor");
+  };
+
   if (resolving) {
     return (
       <div className="min-h-screen">
@@ -52,7 +57,7 @@ export function Access() {
     return (
       <VendorApp
         vendorUid={user.uid}
-        onLogout={logout}
+        onLogout={logoutVendorHandle}
         estado={estado}
         esAdmin={esAdmin}
       />
