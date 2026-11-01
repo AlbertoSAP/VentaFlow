@@ -93,7 +93,7 @@ function DetalleCliente({
   return (
     <ClientDetails
       onSave={onSave}
-      cliente={clients.find((c) => c.id === id)}
+      cliente={clients.find((client) => client.id === id)}
       onVolver={() => navigate("/vendedor/clientes")}
       catalogo={catalogo}
       onAddFrecuente={onAddFrecuente}
@@ -181,7 +181,7 @@ export function VendorRoutes({
             <RequestsPanel
               vendedores={vendedoresAdmin}
               miUid={vendorUid}
-              onSetEstado={(uid, e) => void setEstadoVendedor(uid, e)}
+              onSetEstado={(uid, event) => void setEstadoVendedor(uid, event)}
             />
           ) : (
             <Navigate to="/vendedor" replace />

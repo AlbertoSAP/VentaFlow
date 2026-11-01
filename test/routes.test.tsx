@@ -1,34 +1,44 @@
 import { render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { AuthRoutes, VendorRoutes } from "../src/routes";
+import { ClientList } from "../src/features/vendor/ClientList.tsx";
+import { ClientDetails } from "../src/features/vendor/ClientDetails.tsx";
+import { RequestsPanel } from "../src/features/vendor/RequestsPanel.tsx";
 import { makeClient } from "./fixtures";
 
-// Hijos mockeados: cada uno tiene sus propias pruebas. Aquí solo se
-// prueba que cada ruta resuelve a la pantalla que le corresponde.
+// Hijos automockeados: cada uno tiene sus propias pruebas. Aquí solo
+// se prueba que cada ruta resuelve a la pantalla que le corresponde.
 jest.mock("../src/Dashboard", () => ({
   __esModule: true,
   default: () => <div data-testid="dashboard" />,
 }));
 
-jest.mock("../src/features/vendor/ClientList.tsx", () => ({
-  ClientList: () => <div data-testid="client-list" />,
-}));
+jest.mock("../src/features/vendor/ClientList.tsx");
+jest.mock("../src/features/vendor/ClientDetails.tsx");
+jest.mock("../src/features/vendor/RequestsPanel.tsx");
 
-jest.mock("../src/features/vendor/ClientDetails.tsx", () => ({
-  ClientDetails: ({
-    cliente,
-  }: {
-    cliente?: { name: string; lastName: string };
-  }) => (
+const mockClientList = ClientList as jest.Mock;
+const mockClientDetails = ClientDetails as jest.Mock;
+const mockRequestsPanel = RequestsPanel as jest.Mock;
+
+// Un componente automockeado no retorna nada y React fallaría al
+// renderizarlo: se le da una implementación mínima que reproduce su
+// marcador, para que las pruebas de rutas sigan viendo la pantalla.
+mockClientList.mockImplementation(() => <div data-testid="client-list" />);
+mockClientDetails.mockImplementation(
+  ({ cliente }: { cliente?: { name: string; lastName: string } }) => (
     <div data-testid="client-details">
       {cliente ? `${cliente.name} ${cliente.lastName}` : "sin cliente"}
     </div>
   ),
-}));
+);
+mockRequestsPanel.mockImplementation(() => (
+  <div data-testid="requests-panel" />
+));
 
-jest.mock("../src/features/vendor/RequestsPanel.tsx", () => ({
-  RequestsPanel: () => <div data-testid="requests-panel" />,
-}));
+beforeEach(() => {
+  jest.clearAllMocks();
+});
 
 const noop = async () => {};
 
@@ -71,7 +81,6 @@ function renderVendorRoutes(
       />
     </MemoryRouter>,
   );
-  return client;
 }
 
 describe("AuthRoutes", () => {
@@ -105,6 +114,7 @@ describe("VendorRoutes", () => {
   it("muestra la lista en /vendedor/clientes", () => {
     renderVendorRoutes("/vendedor/clientes");
     expect(screen.getByTestId("client-list")).toBeInTheDocument();
+    expect(mockClientList).toHaveBeenCalled();
   });
 
   it("muestra el detalle del cliente de la URL", () => {
@@ -113,6 +123,7 @@ describe("VendorRoutes", () => {
     expect(screen.getByTestId("client-details")).toHaveTextContent(
       `${client.name} ${client.lastName}`,
     );
+    expect(mockClientDetails).toHaveBeenCalled();
   });
 
   it("muestra el detalle sin cliente cuando el id no existe", () => {
@@ -133,6 +144,7 @@ describe("VendorRoutes", () => {
   it("muestra solicitudes cuando es admin", () => {
     renderVendorRoutes("/vendedor/solicitudes", true);
     expect(screen.getByTestId("requests-panel")).toBeInTheDocument();
+    expect(mockRequestsPanel).toHaveBeenCalled();
   });
 
   it("redireige una ruta desconocida al dashboard", () => {
