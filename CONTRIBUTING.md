@@ -8,6 +8,7 @@
 ## 2. Branching
 
 - All branches must be created from the `develop` branch.
+- If the work is being done by Muse, please include muse in the branch name.
 - Follow this naming convention:
 
 ```text
