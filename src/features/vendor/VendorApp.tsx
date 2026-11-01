@@ -1,30 +1,16 @@
-import Dashboard from "@/Dashboard";
 import { useAdminVendedores } from "@/hooks/useAdmin";
 import { useCatalog } from "@/hooks/useCatalog";
 import { useClient } from "@/hooks/useClient";
 import { useClientCalculations } from "@/hooks/useClientCalculations";
 import { useMetrics } from "@/hooks/useMetrics";
-import type {
-  CatalogProduct,
-  Client,
-  EstadoVendedor,
-} from "@/domain/models";
+import { VendorRoutes } from "@/routes";
+import type { EstadoVendedor } from "@/domain/models";
 import { useMemo, useState } from "react";
-import {
-  Navigate,
-  Route,
-  Routes,
-  useLocation,
-  useNavigate,
-  useParams,
-} from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { AwaitScreen } from "../access/AwaitScreen";
 import { Topbar } from "@/components/shared/Topbar";
 import { NavBtnCls } from "@/components/shared/NavBtnCls";
 import { Wrap } from "@/components/shared/Wrap";
-import { ClientList } from "./ClientList";
-import { RequestsPanel } from "./RequestsPanel";
-import { ClientDetails } from "./ClientDetails";
 
 /* ==================== Vista del vendedor ==================== */
 
@@ -38,38 +24,6 @@ interface VendorProps {
   onLogout: () => Promise<void>;
   estado: EstadoVendedor | null;
   esAdmin: boolean;
-}
-
-interface DetalleClienteProps {
-  clients: Client[];
-  onSave: (c: Client) => Promise<void>;
-  catalogo: CatalogProduct[];
-  onAddFrecuente: (descripcion: string, precio: number) => Promise<void>;
-  onDeleteFrecuente: (productId: string) => Promise<void>;
-}
-
-/* Componente a nivel de módulo (no dentro de VendorApp): si se
- * definiera dentro, cada render del padre lo remontaría y el
- * detalle perdería su estado local cuando cambian los clientes. */
-function DetalleCliente({
-  clients,
-  onSave,
-  catalogo,
-  onAddFrecuente,
-  onDeleteFrecuente,
-}: DetalleClienteProps) {
-  const { id } = useParams();
-  const navigate = useNavigate();
-  return (
-    <ClientDetails
-      onSave={onSave}
-      cliente={clients.find((c) => c.id === id)}
-      onVolver={() => navigate("/vendedor/clientes")}
-      catalogo={catalogo}
-      onAddFrecuente={onAddFrecuente}
-      onDeleteFrecuente={onDeleteFrecuente}
-    />
-  );
 }
 
 export function VendorApp({
@@ -172,53 +126,24 @@ export function VendorApp({
           </p>
         </Wrap>
       ) : (
-        <Routes>
-          <Route path="/vendedor" element={<Dashboard clientes={clients} />} />
-          <Route
-            path="/vendedor/clientes"
-            element={
-              <ClientList
-                allClients={clients}
-                createClient={createClient}
-                deleteClient={deleteClient}
-                busqueda={busqueda}
-                setBusqueda={setBusqueda}
-                clientes={clientesFiltrados}
-                totalPorCobrar={totalPorCobrar}
-                onAbrir={(id: string) =>
-                  navigate(`/vendedor/clientes/${id}`)
-                }
-              />
-            }
-          />
-          <Route
-            path="/vendedor/clientes/:id"
-            element={
-              <DetalleCliente
-                clients={clients}
-                onSave={saveClient}
-                catalogo={catalogo}
-                onAddFrecuente={addFrecuente}
-                onDeleteFrecuente={deleteFrecuente}
-              />
-            }
-          />
-          <Route
-            path="/vendedor/solicitudes"
-            element={
-              esAdmin ? (
-                <RequestsPanel
-                  vendedores={vendedoresAdmin}
-                  miUid={vendorUid}
-                  onSetEstado={(uid, e) => void setEstadoVendedor(uid, e)}
-                />
-              ) : (
-                <Navigate to="/vendedor" replace />
-              )
-            }
-          />
-          <Route path="*" element={<Navigate to="/vendedor" replace />} />
-        </Routes>
+        <VendorRoutes
+          clients={clients}
+          createClient={createClient}
+          deleteClient={deleteClient}
+          busqueda={busqueda}
+          setBusqueda={setBusqueda}
+          clientes={clientesFiltrados}
+          totalPorCobrar={totalPorCobrar}
+          onAbrir={(id: string) => navigate(`/vendedor/clientes/${id}`)}
+          saveClient={saveClient}
+          catalogo={catalogo}
+          addFrecuente={addFrecuente}
+          deleteFrecuente={deleteFrecuente}
+          vendedoresAdmin={vendedoresAdmin}
+          vendorUid={vendorUid}
+          setEstadoVendedor={setEstadoVendedor}
+          esAdmin={esAdmin}
+        />
       )}
     </div>
   );
