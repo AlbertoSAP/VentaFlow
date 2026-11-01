@@ -1,9 +1,7 @@
 import { Topbar } from "@/components/shared/Topbar";
 import { Wrap } from "@/components/shared/Wrap";
 import { useAuth } from "@/hooks/useAuth";
-import { Route, Routes, useNavigate } from "react-router-dom";
-import { VendorAuthScreen } from "./VendorAuthScreen";
-import { ClientAuthScreen } from "./ClientAuthScreen";
+import { AuthRoutes } from "@/routes";
 import { VendorApp } from "../vendor/VendorApp";
 import ClientApp from "../client/ClientApp";
 import { Button } from "@/components/ui/button";
@@ -20,7 +18,6 @@ export function Access() {
     loginClient,
     logout,
   } = useAuth();
-  const navigate = useNavigate();
 
   if (resolving) {
     return (
@@ -35,26 +32,11 @@ export function Access() {
 
   if (!user) {
     return (
-      <Routes>
-        <Route
-          path="/vendedor"
-          element={
-            <VendorAuthScreen
-              onLoginVendor={loginVendor}
-              onRegisterVendor={registerVendor}
-            />
-          }
-        />
-        <Route
-          path="*"
-          element={
-            <ClientAuthScreen
-              onLoginClient={loginClient}
-              onIrVendedor={() => navigate("/vendedor")}
-            />
-          }
-        />
-      </Routes>
+      <AuthRoutes
+        loginVendor={loginVendor}
+        registerVendor={registerVendor}
+        loginClient={loginClient}
+      />
     );
   }
 
