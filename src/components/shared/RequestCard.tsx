@@ -34,7 +34,6 @@ export default function RequestCard({
                 <Button
                   variant="outline"
                   size="sm"
-                  className="text-red-600 hover:text-red-700"
                   onClick={() => onClick(vendor.id, "rechazado")}
                 >
                   Rechazar

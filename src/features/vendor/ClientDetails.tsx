@@ -181,7 +181,7 @@ export function ClientDetails({
             Abonar
           </Button>
           {cliente.telephone && (
-            <Button asChild variant="success" size="sm">
+            <Button asChild variant="outline" size="sm">
               <a
                 href={whatsAppUrl(
                   cliente.telephone,

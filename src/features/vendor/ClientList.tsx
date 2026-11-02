@@ -192,7 +192,7 @@ export function ClientList({
               </span>
               <Button
                 asChild
-                variant="success"
+                variant="outline"
                 size="sm"
                 className="mt-2 self-start"
               >
