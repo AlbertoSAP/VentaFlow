@@ -1,6 +1,6 @@
 import { SuccessNotice } from "@/components/shared/SuccessNotice";
 import { ConfirmModal } from "@/components/shared/ConfirmModal";
-import { AbonoModal } from "@/features/vendor/AbonoModal";
+import { PaymentModal } from "@/features/vendor/PaymentModal";
 import { moneyCls, pagadoCls, TotalBox } from "@/components/shared/TotalBox";
 import { Totals } from "@/components/shared/Totals";
 import { Wrap } from "@/components/shared/Wrap";
@@ -39,7 +39,7 @@ export function ClientDetails({
   const [desc, setDesc] = useState("");
   const [precio, setPrecio] = useState("");
   const [cantidad, setCantidad] = useState("1");
-  const [mostrarAbono, setMostrarAbono] = useState(false);
+  const [showPayment, setShowPayment] = useState(false);
   const [itemAQuitar, setItemAQuitar] = useState<FiadoItem | null>(null);
   const [confirmarSaldar, setConfirmarSaldar] = useState(false);
   const [aviso, setAviso] = useState("");
@@ -116,12 +116,12 @@ export function ClientDetails({
     setItemAQuitar(null);
   };
 
-  // El monto ya viene validado del modal: aquí solo se registra.
+  // The amount already comes validated from the modal: it is only recorded here.
   const registerPayment = (m: number) => {
     guardar((c) => {
       c.pagos.unshift({ id: uid(), monto: m, fecha: Date.now() });
     });
-    setMostrarAbono(false);
+    setShowPayment(false);
     setAviso(`✅ Abono de ${fmtMoney(m)} registrado.`);
   };
 
@@ -176,7 +176,7 @@ export function ClientDetails({
           <Button
             variant="success"
             size="sm"
-            onClick={() => setMostrarAbono(true)}
+            onClick={() => setShowPayment(true)}
           >
             Abonar
           </Button>
@@ -414,15 +414,15 @@ export function ClientDetails({
         />
       )}
 
-      {mostrarAbono && (
-        <AbonoModal
-          deuda={d}
+      {showPayment && (
+        <PaymentModal
+          debt={d}
           onConfirm={registerPayment}
-          onSaldar={() => {
-            setMostrarAbono(false);
+          onSettleAll={() => {
+            setShowPayment(false);
             setConfirmarSaldar(true);
           }}
-          onCancel={() => setMostrarAbono(false)}
+          onCancel={() => setShowPayment(false)}
         />
       )}
     </Wrap>

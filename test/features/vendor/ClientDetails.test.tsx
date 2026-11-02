@@ -9,7 +9,7 @@ import {
 
 // Hijos mockeados: cada uno tiene sus propias pruebas. TotalBox y
 // Totals se mockean (su render real se prueba en shared.test);
-// AbonoModal se mockea (sus pruebas propias están en AbonoModal.test);
+// PaymentModal se mockea (sus pruebas propias están en PaymentModal.test);
 // el resto del detalle (formularios, enlaces) es propio.
 jest.mock("@/components/shared/ConfirmModal", () => ({
   ConfirmModal: ({
@@ -38,22 +38,22 @@ jest.mock("@/components/shared/ConfirmModal", () => ({
   ),
 }));
 
-jest.mock("@/features/vendor/AbonoModal", () => ({
-  AbonoModal: ({
-    deuda,
+jest.mock("@/features/vendor/PaymentModal", () => ({
+  PaymentModal: ({
+    debt,
     onConfirm,
-    onSaldar,
+    onSettleAll,
     onCancel,
   }: {
-    deuda: number;
-    onConfirm: (monto: number) => void;
-    onSaldar: () => void;
+    debt: number;
+    onConfirm: (amount: number) => void;
+    onSettleAll: () => void;
     onCancel: () => void;
   }) => (
     <div role="dialog">
       <h3>Registrar abono</h3>
       <button onClick={() => onConfirm(100)}>Confirmar abono</button>
-      <button disabled={deuda <= 0} onClick={onSaldar}>
+      <button disabled={debt <= 0} onClick={onSettleAll}>
         Saldar todo
       </button>
       <button onClick={onCancel}>Cancelar</button>
@@ -197,9 +197,9 @@ describe("ClientDetails", () => {
     renderDetails({ cliente: makeClientSinDeuda({ id: "a1" }) });
 
     await user.click(screen.getByRole("button", { name: "Abonar" }));
-    const boton = screen.getByRole("button", { name: "Saldar todo" });
-    expect(boton).toBeInTheDocument();
-    expect(boton).toBeDisabled();
+    const button = screen.getByRole("button", { name: "Saldar todo" });
+    expect(button).toBeInTheDocument();
+    expect(button).toBeDisabled();
   });
 
   it("un producto frecuente llena el formulario de fiado con un toque", async () => {

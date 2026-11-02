@@ -1,40 +1,40 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { AbonoModal } from "../../../src/features/vendor/AbonoModal.tsx";
+import { PaymentModal } from "../../../src/features/vendor/PaymentModal.tsx";
 
 const BASE_PROPS = {
-  deuda: 100,
+  debt: 100,
   onConfirm: jest.fn(),
-  onSaldar: jest.fn(),
+  onSettleAll: jest.fn(),
   onCancel: jest.fn(),
 };
 
-function renderModal(props: Partial<typeof BASE_PROPS> = {}) {
-  return render(<AbonoModal {...BASE_PROPS} {...props} />);
+function renderPaymentModal(props: Partial<typeof BASE_PROPS> = {}) {
+  return render(<PaymentModal {...BASE_PROPS} {...props} />);
 }
 
 beforeEach(() => {
   jest.clearAllMocks();
 });
 
-describe("AbonoModal", () => {
+describe("PaymentModal", () => {
   it("Abonar empieza deshabilitado y se habilita con un monto válido", async () => {
     const user = userEvent.setup();
     const onConfirm = jest.fn();
-    renderModal({ onConfirm });
+    renderPaymentModal({ onConfirm });
 
-    const boton = screen.getByRole("button", { name: "Abonar" });
-    const monto = screen.getByPlaceholderText("Monto del abono");
-    expect(boton).toBeDisabled();
+    const button = screen.getByRole("button", { name: "Abonar" });
+    const amount = screen.getByPlaceholderText("Monto del abono");
+    expect(button).toBeDisabled();
 
-    await user.type(monto, "0");
-    expect(boton).toBeDisabled();
+    await user.type(amount, "0");
+    expect(button).toBeDisabled();
 
-    await user.clear(monto);
-    await user.type(monto, "50");
-    expect(boton).toBeEnabled();
+    await user.clear(amount);
+    await user.type(amount, "50");
+    expect(button).toBeEnabled();
 
-    await user.click(boton);
+    await user.click(button);
     expect(onConfirm).toHaveBeenCalledTimes(1);
     expect(onConfirm).toHaveBeenCalledWith(50);
   });
@@ -42,7 +42,7 @@ describe("AbonoModal", () => {
   it("Enter con un monto válido confirma el abono", async () => {
     const user = userEvent.setup();
     const onConfirm = jest.fn();
-    renderModal({ onConfirm });
+    renderPaymentModal({ onConfirm });
 
     await user.type(screen.getByPlaceholderText("Monto del abono"), "75{Enter}");
 
@@ -53,14 +53,14 @@ describe("AbonoModal", () => {
   it("los chips de montos rápidos llenan el abono y lo registran", async () => {
     const user = userEvent.setup();
     const onConfirm = jest.fn();
-    renderModal({ onConfirm });
+    renderPaymentModal({ onConfirm });
 
     await user.click(screen.getByRole("button", { name: "C$ 100" }));
 
-    const monto = screen.getByPlaceholderText(
+    const amount = screen.getByPlaceholderText(
       "Monto del abono",
     ) as HTMLInputElement;
-    expect(monto.value).toBe("100");
+    expect(amount.value).toBe("100");
 
     await user.click(screen.getByRole("button", { name: "Abonar" }));
     expect(onConfirm).toHaveBeenCalledTimes(1);
@@ -68,7 +68,7 @@ describe("AbonoModal", () => {
   });
 
   it("el input del monto recibe foco al abrir el modal", () => {
-    renderModal();
+    renderPaymentModal();
 
     expect(screen.getByPlaceholderText("Monto del abono")).toHaveFocus();
   });
@@ -76,17 +76,17 @@ describe("AbonoModal", () => {
   it("Saldar todo pide saldar sin registrar un abono", async () => {
     const user = userEvent.setup();
     const onConfirm = jest.fn();
-    const onSaldar = jest.fn();
-    renderModal({ onConfirm, onSaldar });
+    const onSettleAll = jest.fn();
+    renderPaymentModal({ onConfirm, onSettleAll });
 
     await user.click(screen.getByRole("button", { name: "Saldar todo" }));
 
-    expect(onSaldar).toHaveBeenCalledTimes(1);
+    expect(onSettleAll).toHaveBeenCalledTimes(1);
     expect(onConfirm).not.toHaveBeenCalled();
   });
 
   it("Saldar todo queda deshabilitado sin deuda", () => {
-    renderModal({ deuda: 0 });
+    renderPaymentModal({ debt: 0 });
 
     expect(
       screen.getByRole("button", { name: "Saldar todo" }),
@@ -96,7 +96,7 @@ describe("AbonoModal", () => {
   it("Cancelar cierra el modal", async () => {
     const user = userEvent.setup();
     const onCancel = jest.fn();
-    renderModal({ onCancel });
+    renderPaymentModal({ onCancel });
 
     await user.click(screen.getByRole("button", { name: "Cancelar" }));
 
@@ -105,7 +105,7 @@ describe("AbonoModal", () => {
 
   it("Escape cierra el modal", () => {
     const onCancel = jest.fn();
-    renderModal({ onCancel });
+    renderPaymentModal({ onCancel });
 
     fireEvent.keyDown(document, { key: "Escape" });
 
@@ -115,7 +115,7 @@ describe("AbonoModal", () => {
   it("clic fuera del modal lo cierra", async () => {
     const user = userEvent.setup();
     const onCancel = jest.fn();
-    renderModal({ onCancel });
+    renderPaymentModal({ onCancel });
 
     const overlay = document.querySelector(
       '[data-slot="dialog-overlay"]',
@@ -128,7 +128,7 @@ describe("AbonoModal", () => {
   it("la X del diálogo cierra el modal", async () => {
     const user = userEvent.setup();
     const onCancel = jest.fn();
-    renderModal({ onCancel });
+    renderPaymentModal({ onCancel });
 
     await user.click(screen.getByRole("button", { name: "Cerrar" }));
 

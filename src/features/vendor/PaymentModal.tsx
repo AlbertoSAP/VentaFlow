@@ -1,4 +1,4 @@
-/* =============== Modal para registrar un abono =============== */
+/* =============== Modal to register a payment =============== */
 
 import { Button } from "@/components/ui/button";
 import {
@@ -11,37 +11,37 @@ import {
 import { Input } from "@/components/ui/input";
 import { FormEvent, useEffect, useRef, useState } from "react";
 
-interface AbonoModalProps {
-  deuda: number;
-  onConfirm: (monto: number) => void;
-  /** Pide saldar: el padre cierra este modal y abre el de confirmación. */
-  onSaldar: () => void;
+interface PaymentModalProps {
+  debt: number;
+  onConfirm: (amount: number) => void;
+  /** Requests settling in full: the parent closes this modal and opens the confirmation one. */
+  onSettleAll: () => void;
   onCancel: () => void;
 }
 
-const MONTOS_RAPIDOS = [50, 100, 200, 500];
+const QUICK_AMOUNTS = [50, 100, 200, 500];
 
-export function AbonoModal({
-  deuda,
+export function PaymentModal({
+  debt,
   onConfirm,
-  onSaldar,
+  onSettleAll,
   onCancel,
-}: AbonoModalProps) {
-  const [monto, setMonto] = useState("");
+}: PaymentModalProps) {
+  const [amount, setAmount] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // El monto recibe foco al abrir, para que el teclado abra de una vez.
-  // Va en efecto: corre después del manejo de foco de Radix, así el
-  // cursor queda en el monto y no en el contenido del diálogo.
+  // The amount input gets focus on open, so the keyboard opens at once.
+  // It goes in an effect: it runs after Radix's focus handling, so the
+  // cursor lands on the amount, not on the dialog content.
   useEffect(() => {
     inputRef.current?.focus();
   }, []);
 
   const submit = (e: FormEvent) => {
     e.preventDefault();
-    const m = parseFloat(monto);
-    if (isNaN(m) || m <= 0) return;
-    onConfirm(m);
+    const parsed = parseFloat(amount);
+    if (isNaN(parsed) || parsed <= 0) return;
+    onConfirm(parsed);
   };
 
   return (
@@ -67,22 +67,22 @@ export function AbonoModal({
               min="0"
               step="0.01"
               placeholder="Monto del abono"
-              value={monto}
-              onChange={(e) => setMonto(e.target.value)}
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
             />
           </div>
           <div className="mt-4 flex flex-wrap items-center gap-2">
             <span className="text-xs text-muted-foreground">
               Montos rápidos:
             </span>
-            {MONTOS_RAPIDOS.map((v) => (
+            {QUICK_AMOUNTS.map((v) => (
               <Button
                 key={v}
                 type="button"
                 variant="outline"
                 size="sm"
                 className="rounded-full px-4"
-                onClick={() => setMonto(String(v))}
+                onClick={() => setAmount(String(v))}
               >
                 C$ {v}
               </Button>
@@ -92,8 +92,8 @@ export function AbonoModal({
             <Button
               variant="outline"
               type="button"
-              disabled={deuda <= 0}
-              onClick={onSaldar}
+              disabled={debt <= 0}
+              onClick={onSettleAll}
             >
               Saldar todo
             </Button>
@@ -104,7 +104,7 @@ export function AbonoModal({
               <Button
                 variant="success"
                 type="submit"
-                disabled={!(parseFloat(monto) > 0)}
+                disabled={!(parseFloat(amount) > 0)}
               >
                 Abonar
               </Button>
