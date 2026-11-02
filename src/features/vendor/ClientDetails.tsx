@@ -117,7 +117,7 @@ export function ClientDetails({
   };
 
   // El monto ya viene validado del modal: aquí solo se registra.
-  const registrarAbono = (m: number) => {
+  const registerPayment = (m: number) => {
     guardar((c) => {
       c.pagos.unshift({ id: uid(), monto: m, fecha: Date.now() });
     });
@@ -417,7 +417,7 @@ export function ClientDetails({
       {mostrarAbono && (
         <AbonoModal
           deuda={d}
-          onConfirm={registrarAbono}
+          onConfirm={registerPayment}
           onSaldar={() => {
             setMostrarAbono(false);
             setConfirmarSaldar(true);

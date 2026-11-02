@@ -1,8 +1,15 @@
 /* =============== Modal para registrar un abono =============== */
 
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useEffect, useRef, useState } from "react";
 
 interface AbonoModalProps {
   deuda: number;
@@ -21,15 +28,14 @@ export function AbonoModal({
   onCancel,
 }: AbonoModalProps) {
   const [monto, setMonto] = useState("");
+  const inputRef = useRef<HTMLInputElement>(null);
 
-  // Escape cierra el modal, igual que ConfirmModal.
+  // El monto recibe foco al abrir, para que el teclado abra de una vez.
+  // Va en efecto: corre después del manejo de foco de Radix, así el
+  // cursor queda en el monto y no en el contenido del diálogo.
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onCancel();
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [onCancel]);
+    inputRef.current?.focus();
+  }, []);
 
   const submit = (e: FormEvent) => {
     e.preventDefault();
@@ -39,23 +45,23 @@ export function AbonoModal({
   };
 
   return (
-    <div
-      className="fixed inset-0 z-50 grid place-items-center bg-slate-950/60 p-4 backdrop-blur-sm"
-      onClick={onCancel}
+    <Dialog
+      open
+      onOpenChange={(open) => {
+        if (!open) onCancel();
+      }}
     >
-      <div
-        className="animate-in fade-in zoom-in-95 w-full max-w-md rounded-2xl border bg-card p-6 shadow-xl duration-150"
-        role="dialog"
-        aria-modal="true"
-        aria-label="Registrar abono"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <h3 className="text-lg font-semibold tracking-tight">
-          Registrar abono
-        </h3>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Registrar abono</DialogTitle>
+          <DialogDescription>
+            El abono se suma a la cuenta y actualiza la deuda.
+          </DialogDescription>
+        </DialogHeader>
         <form onSubmit={submit}>
-          <div className="mt-4 flex flex-wrap gap-3">
+          <div className="flex flex-wrap gap-3">
             <Input
+              ref={inputRef}
               className="w-[150px] flex-none"
               type="number"
               min="0"
@@ -63,7 +69,6 @@ export function AbonoModal({
               placeholder="Monto del abono"
               value={monto}
               onChange={(e) => setMonto(e.target.value)}
-              autoFocus
             />
           </div>
           <div className="mt-4 flex flex-wrap items-center gap-2">
@@ -106,7 +111,7 @@ export function AbonoModal({
             </div>
           </div>
         </form>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }

@@ -107,7 +107,7 @@ describe("AbonoModal", () => {
     const onCancel = jest.fn();
     renderModal({ onCancel });
 
-    fireEvent.keyDown(window, { key: "Escape" });
+    fireEvent.keyDown(document, { key: "Escape" });
 
     expect(onCancel).toHaveBeenCalledTimes(1);
   });
@@ -117,8 +117,20 @@ describe("AbonoModal", () => {
     const onCancel = jest.fn();
     renderModal({ onCancel });
 
-    const dialog = screen.getByRole("dialog");
-    await user.click(dialog.parentElement as HTMLElement);
+    const overlay = document.querySelector(
+      '[data-slot="dialog-overlay"]',
+    ) as HTMLElement;
+    await user.click(overlay);
+
+    expect(onCancel).toHaveBeenCalledTimes(1);
+  });
+
+  it("la X del diálogo cierra el modal", async () => {
+    const user = userEvent.setup();
+    const onCancel = jest.fn();
+    renderModal({ onCancel });
+
+    await user.click(screen.getByRole("button", { name: "Cerrar" }));
 
     expect(onCancel).toHaveBeenCalledTimes(1);
   });
