@@ -117,12 +117,12 @@ export function ClientDetails({
   };
 
   // The amount already comes validated from the modal: it is only recorded here.
-  const registerPayment = (m: number) => {
+  const registerPayment = (amount: number) => {
     guardar((c) => {
-      c.pagos.unshift({ id: uid(), monto: m, fecha: Date.now() });
+      c.pagos.unshift({ id: uid(), monto: amount, fecha: Date.now() });
     });
     setShowPayment(false);
-    setAviso(`✅ Abono de ${fmtMoney(m)} registrado.`);
+    setAviso(`✅ Abono de ${fmtMoney(amount)} registrado.`);
   };
 
   // Un toque en un frecuente llena descripción y precio del fiado.
