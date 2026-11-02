@@ -1,12 +1,11 @@
 import { Topbar } from "@/components/shared/Topbar";
 import { Wrap } from "@/components/shared/Wrap";
 import { useAuth } from "@/hooks/useAuth";
-import { Route, Routes, useNavigate } from "react-router-dom";
-import { VendorAuthScreen } from "./VendorAuthScreen";
-import { ClientAuthScreen } from "./ClientAuthScreen";
+import { AuthRoutes } from "@/routes";
 import { VendorApp } from "../vendor/VendorApp";
 import ClientApp from "../client/ClientApp";
 import { Button } from "@/components/ui/button";
+import { useNavigate } from "react-router-dom";
 
 export function Access() {
   const {
@@ -20,7 +19,18 @@ export function Access() {
     loginClient,
     logout,
   } = useAuth();
+
   const navigate = useNavigate();
+
+  const logoutHandle = async () => {
+    await logout();
+    navigate("/");
+  };
+
+  const logoutVendorHandle = async () => {
+    await logout();
+    navigate("/vendedor");
+  };
 
   if (resolving) {
     return (
@@ -35,26 +45,11 @@ export function Access() {
 
   if (!user) {
     return (
-      <Routes>
-        <Route
-          path="/vendedor"
-          element={
-            <VendorAuthScreen
-              onLoginVendor={loginVendor}
-              onRegisterVendor={registerVendor}
-            />
-          }
-        />
-        <Route
-          path="*"
-          element={
-            <ClientAuthScreen
-              onLoginClient={loginClient}
-              onIrVendedor={() => navigate("/vendedor")}
-            />
-          }
-        />
-      </Routes>
+      <AuthRoutes
+        loginVendor={loginVendor}
+        registerVendor={registerVendor}
+        loginClient={loginClient}
+      />
     );
   }
 
@@ -62,7 +57,7 @@ export function Access() {
     return (
       <VendorApp
         vendorUid={user.uid}
-        onLogout={logout}
+        onLogout={logoutVendorHandle}
         estado={estado}
         esAdmin={esAdmin}
       />
@@ -70,7 +65,7 @@ export function Access() {
   }
 
   if (role === "cliente") {
-    return <ClientApp clientUid={user.uid} onLogout={logout} />;
+    return <ClientApp clientUid={user.uid} onLogout={logoutHandle} />;
   }
 
   // Hay sesión pero ningún registro asociado (ej: la cuenta quedó
@@ -78,7 +73,7 @@ export function Access() {
   return (
     <div className="min-h-screen">
       <Topbar>
-        <Button variant="outline" size="sm" onClick={() => void logout()}>
+        <Button variant="outline" size="sm" onClick={() => void logoutHandle()}>
           Salir
         </Button>
       </Topbar>

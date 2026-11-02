@@ -13,6 +13,7 @@ import type { ClientesRepository } from "../data/repositories";
 import {
   generateEmailAlias,
   generateTempPassword,
+  telephoneError,
 } from "../services/identity";
 
 export type CreateClientResult =
@@ -66,19 +67,21 @@ export const useClient = (
     telephone: string;
   }): Promise<CreateClientResult> => {
     if (!name.trim()) return { ok: false, error: "El nombre es obligatorio." };
-    if (telephone.replace(/\D/g, "").length < 8)
-      return {
-        ok: false,
-        error: "El teléfono debe tener al menos 8 dígitos: será el usuario del cliente para entrar.",
-      };
+    const telError = telephoneError(telephone);
+    if (telError) return { ok: false, error: telError };
 
     const email = generateEmailAlias(telephone);
     const tempPassword = generateTempPassword();
 
-    const secondaryApp = initializeApp(firebaseConfig, "Secondary");
-    const secondaryAuth = getAuth(secondaryApp);
-
+    // La app secundaria se crea dentro del try: si esto falla (p. ej.
+    // ya existe una con ese nombre), el error vuelve como resultado
+    // y el formulario lo muestra, en vez de dejar el botón trabado
+    // en "Creando…" sin mensaje.
+    let secondaryApp: ReturnType<typeof initializeApp> | undefined;
+    let secondaryAuth: ReturnType<typeof getAuth> | undefined;
     try {
+      secondaryApp = initializeApp(firebaseConfig, "Secondary");
+      secondaryAuth = getAuth(secondaryApp);
       const cred = await createUserWithEmailAndPassword(
         secondaryAuth,
         email,
@@ -115,12 +118,18 @@ export const useClient = (
     } catch (e) {
       return { ok: false, error: mapCreateError(e) };
     } finally {
+      // La limpieza nunca debe lanzar: si borrar la app fallara, el
+      // resultado (éxito o error) ya está decidido y no se pierde.
       try {
-        await signOut(secondaryAuth);
+        if (secondaryAuth) await signOut(secondaryAuth);
       } catch {
         // la sesión secundaria puede ya no existir
       }
-      await deleteApp(secondaryApp);
+      try {
+        if (secondaryApp) await deleteApp(secondaryApp);
+      } catch {
+        // la app secundaria puede ya no existir
+      }
     }
   };
 

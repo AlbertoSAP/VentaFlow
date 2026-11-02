@@ -5,12 +5,13 @@ import { useMemo } from "react";
 import {
   generateEmailAlias,
   generateTempPassword,
+  telephoneError,
   uid,
 } from "../services/identity";
 
 export function useIdentity() {
   return useMemo(
-    () => ({ uid, generateEmailAlias, generateTempPassword }),
+    () => ({ uid, generateEmailAlias, generateTempPassword, telephoneError }),
     [],
   );
 }

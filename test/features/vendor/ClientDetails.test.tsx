@@ -1,11 +1,16 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { ClientDetails } from "../../../src/features/vendor/ClientDetails.tsx";
-import { makeClient, makeClientSinRegistros } from "../../fixtures";
+import {
+  makeClient,
+  makeClientSinDeuda,
+  makeClientSinRegistros,
+} from "../../fixtures";
 
 // Hijos mockeados: cada uno tiene sus propias pruebas. TotalBox y
-// Totals se mockean (su render real se prueba en shared.test); el
-// resto del detalle (formularios, modales, enlaces) es propio.
+// Totals se mockean (su render real se prueba en shared.test);
+// PaymentModal se mockea (sus pruebas propias están en PaymentModal.test);
+// el resto del detalle (formularios, enlaces) es propio.
 jest.mock("@/components/shared/ConfirmModal", () => ({
   ConfirmModal: ({
     title,
@@ -29,6 +34,29 @@ jest.mock("@/components/shared/ConfirmModal", () => ({
         <button onClick={onCancel}>{cancelLabel}</button>
       )}
       <button onClick={onConfirm}>{confirmLabel}</button>
+    </div>
+  ),
+}));
+
+jest.mock("@/features/vendor/PaymentModal", () => ({
+  PaymentModal: ({
+    debt,
+    onConfirm,
+    onSettleAll,
+    onCancel,
+  }: {
+    debt: number;
+    onConfirm: (amount: number) => void;
+    onSettleAll: () => void;
+    onCancel: () => void;
+  }) => (
+    <div role="dialog">
+      <h3>Registrar abono</h3>
+      <button onClick={() => onConfirm(100)}>Confirmar abono</button>
+      <button disabled={debt <= 0} onClick={onSettleAll}>
+        Saldar todo
+      </button>
+      <button onClick={onCancel}>Cancelar</button>
     </div>
   ),
 }));
@@ -126,25 +154,27 @@ describe("ClientDetails", () => {
     ).toBeInTheDocument();
   });
 
-  it("los chips de montos rápidos llenan el abono y lo registran", async () => {
+  it("el botón Abonar abre el modal y al confirmar registra el abono", async () => {
     const user = userEvent.setup();
     const onSave = jest.fn(async () => {});
     renderDetails({ onSave });
 
-    await user.click(screen.getByRole("button", { name: "C$ 100" }));
-
-    const monto = screen.getByPlaceholderText(
-      "Monto del abono",
-    ) as HTMLInputElement;
-    expect(monto.value).toBe("100");
+    expect(
+      screen.queryByRole("button", { name: "Confirmar abono" }),
+    ).not.toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Abonar" }));
+    await user.click(screen.getByRole("button", { name: "Confirmar abono" }));
+
     expect(onSave).toHaveBeenCalledTimes(1);
     const guardado = (onSave.mock.calls[0] as any[])[0];
     expect(guardado.pagos[0].monto).toBe(100);
     expect(
       await screen.findByText(/Abono de C\$ 100\.00 registrado/),
     ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Confirmar abono" }),
+    ).not.toBeInTheDocument();
   });
 
   it("saldar todo confirma en el modal y registra el abono por la deuda", async () => {
@@ -152,6 +182,7 @@ describe("ClientDetails", () => {
     const onSave = jest.fn(async () => {});
     renderDetails({ onSave });
 
+    await user.click(screen.getByRole("button", { name: "Abonar" }));
     await user.click(screen.getByRole("button", { name: "Saldar todo" }));
     expect(screen.getByText("¿Saldar toda la deuda?")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Sí, saldar" }));
@@ -159,6 +190,16 @@ describe("ClientDetails", () => {
     expect(onSave).toHaveBeenCalledTimes(1);
     const guardado = (onSave.mock.calls[0] as any[])[0];
     expect(guardado.pagos[0].monto).toBe(100); // deuda de la fixture
+  });
+
+  it("saldar todo en el modal queda deshabilitado sin deuda", async () => {
+    const user = userEvent.setup();
+    renderDetails({ cliente: makeClientSinDeuda({ id: "a1" }) });
+
+    await user.click(screen.getByRole("button", { name: "Abonar" }));
+    const button = screen.getByRole("button", { name: "Saldar todo" });
+    expect(button).toBeInTheDocument();
+    expect(button).toBeDisabled();
   });
 
   it("un producto frecuente llena el formulario de fiado con un toque", async () => {

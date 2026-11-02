@@ -3,7 +3,7 @@ import { useClient } from "../src/hooks/useClient.tsx";
 import { __fakeAuth } from "./fakes/firebaseAuth";
 import { __fakeDb } from "./fakes/firebaseDatabase";
 import { deleteUser, signOut } from "firebase/auth";
-import { deleteApp } from "firebase/app";
+import { deleteApp, initializeApp } from "firebase/app";
 import { set as dbSet } from "firebase/database";
 import { makeClient, makeClientSinRegistros } from "./fixtures";
 
@@ -85,6 +85,76 @@ describe("useClient", () => {
     expect(r1).toMatchObject({ ok: false });
     expect(r2).toMatchObject({ ok: false });
     expect(__fakeDb.getData().clientes).toBeUndefined();
+  });
+
+  it("createClient rechaza letras en el teléfono con mensaje específico", async () => {
+    const { result } = renderHook(() => useClient("vendor-1"));
+    let res: any;
+    await act(async () => {
+      res = await result.current.createClient({
+        name: "Ana",
+        lastName: "",
+        telephone: "8888abcd",
+      });
+    });
+    expect(res).toMatchObject({
+      ok: false,
+      error: "El teléfono solo debe contener números.",
+    });
+    expect(__fakeDb.getData().clientes).toBeUndefined();
+  });
+
+  it("createClient rechaza símbolos en el teléfono antes de tocar Firebase", async () => {
+    const { result } = renderHook(() => useClient("vendor-1"));
+    let res: any;
+    await act(async () => {
+      res = await result.current.createClient({
+        name: "Ana",
+        lastName: "",
+        telephone: "8888**7777",
+      });
+    });
+    expect(res).toMatchObject({
+      ok: false,
+      error: "El teléfono solo debe contener números.",
+    });
+    expect(__fakeDb.getData().clientes).toBeUndefined();
+  });
+
+  it("createClient devuelve error (no lanza) si falla crear la app secundaria", async () => {
+    (initializeApp as jest.Mock).mockImplementationOnce(() => {
+      throw new Error("duplicate-app");
+    });
+    const { result } = renderHook(() => useClient("vendor-1"));
+    let res: any;
+    await act(async () => {
+      res = await result.current.createClient({
+        name: "Ana",
+        lastName: "",
+        telephone: "88887777",
+      });
+    });
+    expect(res).toMatchObject({
+      ok: false,
+      error: "No se pudo crear el cliente. Inténtalo de nuevo.",
+    });
+    expect(__fakeDb.getData().clientes).toBeUndefined();
+  });
+
+  it("createClient sigue siendo ok aunque falle borrar la app secundaria", async () => {
+    (deleteApp as jest.Mock).mockRejectedValueOnce(new Error("boom"));
+    const { result } = renderHook(() => useClient("vendor-1"));
+    let res: any;
+    await act(async () => {
+      res = await result.current.createClient({
+        name: "Ana",
+        lastName: "López",
+        telephone: "8888 7777",
+      });
+    });
+    expect(res.ok).toBe(true);
+    expect(res.tempPassword).toMatch(/^[A-Za-z0-9]{10}$/);
+    expect(__fakeDb.getData().clienteIndex).toBeDefined();
   });
 
   it("createClient mapea el error de teléfono duplicado", async () => {

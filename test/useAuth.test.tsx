@@ -7,6 +7,13 @@ import {
   createUserWithEmailAndPassword,
   signOut,
 } from "firebase/auth";
+import { sendNewVendorNotification } from "../src/services/email.ts";
+
+jest.mock("../src/services/email.ts", () => ({
+  sendNewVendorNotification: jest.fn(),
+}));
+
+const notifyMock = sendNewVendorNotification as unknown as jest.Mock;
 
 beforeEach(() => {
   __fakeAuth.reset();
@@ -79,6 +86,17 @@ describe("useAuth", () => {
       email: "juan@x.com",
     });
     expect(result.current.role).toBe("vendedor");
+  });
+
+  it("registerVendor avisa al admin del nuevo vendedor", async () => {
+    const { result } = renderHook(() => useAuth());
+    await act(async () => {
+      await result.current.registerVendor("Juan Pérez", "juan@x.com", "123456");
+    });
+    expect(notifyMock).toHaveBeenCalledWith(
+      expect.objectContaining({ name: "Juan Pérez", email: "juan@x.com" }),
+      expect.anything(),
+    );
   });
 
   it("logout cierra la sesión", async () => {

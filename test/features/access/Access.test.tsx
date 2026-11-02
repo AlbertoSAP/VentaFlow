@@ -2,6 +2,10 @@ import { render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { Access } from "../../../src/features/access/Access.tsx";
 import { useAuth } from "../../../src/hooks/useAuth.ts";
+import ClientApp from "@/features/client/ClientApp.tsx";
+import { VendorApp } from "../../../src/features/vendor/VendorApp.tsx";
+import { latestMockCall } from "../../testHelpers.ts";
+import { act } from "react";
 
 // Hijos mockeados: cada pantalla tiene sus propias pruebas. Access
 // solo prueba su puerta (sesión + rol + ruta).
@@ -17,9 +21,7 @@ jest.mock("@/components/shared/Topbar", () => ({
 }));
 
 jest.mock("@/components/shared/Wrap", () => ({
-  Wrap: ({ children }: { children?: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
+  Wrap: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>,
 }));
 
 jest.mock("../../../src/features/access/VendorAuthScreen.tsx", () => ({
@@ -30,13 +32,16 @@ jest.mock("../../../src/features/access/ClientAuthScreen.tsx", () => ({
   ClientAuthScreen: () => <div data-testid="client-auth" />,
 }));
 
-jest.mock("../../../src/features/vendor/VendorApp.tsx", () => ({
-  VendorApp: () => <div data-testid="vendor-app" />,
-}));
+jest.mock("../../../src/features/vendor/VendorApp.tsx");
+const mockVendorApp = VendorApp as jest.Mock;
 
-jest.mock("../../../src/features/client/ClientApp.tsx", () => ({
-  __esModule: true,
-  default: () => <div data-testid="client-app" />,
+jest.mock("../../../src/features/client/ClientApp.tsx");
+const mockClientApp = ClientApp as jest.Mock;
+const mockNavigate = jest.fn();
+
+jest.mock("react-router-dom", () => ({
+  ...jest.requireActual("react-router-dom"),
+  useNavigate: () => mockNavigate,
 }));
 
 const useAuthMock = useAuth as unknown as jest.Mock;
@@ -99,13 +104,39 @@ describe("Access (puerta de acceso)", () => {
   it("con sesión de vendedor muestra la app del vendedor", () => {
     setAuth({ user: { uid: "vendor-1" }, role: "vendedor" });
     renderAccess();
-    expect(screen.getByTestId("vendor-app")).toBeInTheDocument();
+    expect(mockVendorApp).toHaveBeenCalled();
+  });
+
+  it("retorna /vendedor cuando el vendedor cierra sesion", async () => {
+    setAuth({ user: { uid: "vendor-1" }, role: "vendedor" });
+    renderAccess();
+
+    const { onLogout } = latestMockCall(mockVendorApp)[0];
+
+    await act(async () => {
+      await onLogout();
+    });
+
+    expect(mockNavigate).toHaveBeenCalledWith("/vendedor");
   });
 
   it("con sesión de cliente muestra su estado de cuenta", () => {
     setAuth({ user: { uid: "cli-1" }, role: "cliente" });
     renderAccess();
-    expect(screen.getByTestId("client-app")).toBeInTheDocument();
+    expect(mockClientApp).toHaveBeenCalled();
+  });
+
+  it("retorna / cuando el cliente cierra sesion", async () => {
+    setAuth({ user: { uid: "cli-1" }, role: "cliente" });
+    renderAccess();
+
+    const { onLogout } = latestMockCall(mockClientApp)[0];
+
+    await act(async () => {
+      await onLogout();
+    });
+
+    expect(mockNavigate).toHaveBeenCalledWith("/");
   });
 
   it("una cuenta sin registro asociado ve el aviso de cuenta huérfana", () => {
