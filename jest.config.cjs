@@ -15,5 +15,6 @@ module.exports = {
     "^firebase/auth$": "<rootDir>/test/fakes/firebaseAuth.ts",
     "^firebase/database$": "<rootDir>/test/fakes/firebaseDatabase.ts",
     "/firebase\\.ts$": "<rootDir>/test/fakes/firebaseModule.ts",
+    "/emailConfig\\.ts$": "<rootDir>/test/fakes/emailConfig.ts",
   },
 };

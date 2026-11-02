@@ -17,6 +17,8 @@ import type {
   VendedoresRepository,
 } from "../data/repositories";
 import { generateEmailAlias } from "../services/identity";
+import { sendNewVendorNotification } from "../services/email";
+import { emailjsConfig } from "../emailConfig.ts";
 
 export function mapAuthError(e: unknown): string {
   const code = (e as { code?: string })?.code ?? "";
@@ -110,12 +112,19 @@ export const useAuth = (deps: AuthDeps = {}) => {
       email.trim(),
       password,
     );
+    const created = Date.now();
     await vendors.writeVendorProfile({
       id: cred.user.uid,
       name: name.trim(),
       email: email.trim(),
-      created: Date.now(),
+      created,
     });
+    // Aviso al admin: no bloquea el registro si EmailJS no está
+    // configurado o el envío falla (el servicio nunca lanza).
+    void sendNewVendorNotification(
+      { name: name.trim(), email: email.trim(), created },
+      emailjsConfig,
+    );
     setRole("vendedor");
   };
 
