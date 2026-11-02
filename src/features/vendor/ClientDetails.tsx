@@ -1,5 +1,6 @@
 import { SuccessNotice } from "@/components/shared/SuccessNotice";
 import { ConfirmModal } from "@/components/shared/ConfirmModal";
+import { AbonoModal } from "@/features/vendor/AbonoModal";
 import { moneyCls, pagadoCls, TotalBox } from "@/components/shared/TotalBox";
 import { Totals } from "@/components/shared/Totals";
 import { Wrap } from "@/components/shared/Wrap";
@@ -38,7 +39,7 @@ export function ClientDetails({
   const [desc, setDesc] = useState("");
   const [precio, setPrecio] = useState("");
   const [cantidad, setCantidad] = useState("1");
-  const [montoPago, setMontoPago] = useState("");
+  const [mostrarAbono, setMostrarAbono] = useState(false);
   const [itemAQuitar, setItemAQuitar] = useState<FiadoItem | null>(null);
   const [confirmarSaldar, setConfirmarSaldar] = useState(false);
   const [aviso, setAviso] = useState("");
@@ -115,14 +116,12 @@ export function ClientDetails({
     setItemAQuitar(null);
   };
 
-  const registrarPago = (e: FormEvent) => {
-    e.preventDefault();
-    const m = parseFloat(montoPago);
-    if (isNaN(m) || m <= 0) return;
+  // El monto ya viene validado del modal: aquí solo se registra.
+  const registrarAbono = (m: number) => {
     guardar((c) => {
       c.pagos.unshift({ id: uid(), monto: m, fecha: Date.now() });
     });
-    setMontoPago("");
+    setMostrarAbono(false);
     setAviso(`✅ Abono de ${fmtMoney(m)} registrado.`);
   };
 
@@ -174,6 +173,13 @@ export function ClientDetails({
         </div>
         <div className="flex flex-col items-end gap-2.5">
           <TotalBox monto={d} />
+          <Button
+            variant="success"
+            size="sm"
+            onClick={() => setMostrarAbono(true)}
+          >
+            Abonar
+          </Button>
           {cliente.telephone && (
             <Button asChild variant="success" size="sm">
               <a
@@ -352,54 +358,12 @@ export function ClientDetails({
       </Card>
 
       <Card className="gap-4 p-6">
-        <h3 className="text-base font-semibold tracking-tight">
-          Registrar abono
-        </h3>
-        <form onSubmit={registrarPago}>
-          <div className="flex flex-wrap gap-3">
-            <Input
-              className="w-[150px] flex-none"
-              type="number"
-              min="0"
-              step="0.01"
-              placeholder="Monto del abono"
-              value={montoPago}
-              onChange={(e) => setMontoPago(e.target.value)}
-            />
-            <Button
-              variant="success"
-              type="submit"
-              disabled={!(parseFloat(montoPago) > 0)}
-            >
-              Abonar
-            </Button>
-            <Button
-              variant="outline"
-              type="button"
-              disabled={d <= 0}
-              onClick={() => setConfirmarSaldar(true)}
-            >
-              Saldar todo
-            </Button>
-          </div>
-          <div className="mt-4 flex flex-wrap items-center gap-2">
-            <span className="text-xs text-muted-foreground">
-              Montos rápidos:
-            </span>
-            {[50, 100, 200, 500].map((v) => (
-              <Button
-                key={v}
-                type="button"
-                variant="outline"
-                size="sm"
-                className="rounded-full px-4"
-                onClick={() => setMontoPago(String(v))}
-              >
-                C$ {v}
-              </Button>
-            ))}
-          </div>
-        </form>
+        <h3 className="text-base font-semibold tracking-tight">Abonos</h3>
+        {(cliente.pagos || []).length === 0 && (
+          <p className="text-sm text-muted-foreground">
+            Aún no hay abonos registrados.
+          </p>
+        )}
         {(cliente.pagos || []).length > 0 && (
           <div className="flex flex-col gap-2">
             {(cliente.pagos || []).map((p) => (
@@ -447,6 +411,18 @@ export function ClientDetails({
           confirmTone="primary"
           onConfirm={confirmarSaldarPago}
           onCancel={() => setConfirmarSaldar(false)}
+        />
+      )}
+
+      {mostrarAbono && (
+        <AbonoModal
+          deuda={d}
+          onConfirm={registrarAbono}
+          onSaldar={() => {
+            setMostrarAbono(false);
+            setConfirmarSaldar(true);
+          }}
+          onCancel={() => setMostrarAbono(false)}
         />
       )}
     </Wrap>
