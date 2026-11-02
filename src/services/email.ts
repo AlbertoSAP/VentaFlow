@@ -1,4 +1,5 @@
 import { fmtFecha } from "../lib/format";
+import emailjs from "@emailjs/browser";
 
 export interface EmailNotificationConfig {
   serviceId: string;
@@ -30,8 +31,7 @@ export async function sendNewVendorNotification(
 ): Promise<void> {
   if (!config.serviceId || !config.templateId || !config.publicKey) return;
   try {
-    const send: EmailSend =
-      sendFn ?? (await import("@emailjs/browser")).send;
+    const send: EmailSend = sendFn ?? emailjs.send;
     await send(
       config.serviceId,
       config.templateId,
