@@ -49,6 +49,35 @@ jest.mock("@/components/shared/Errorhelper", () => ({
   ),
 }));
 
+jest.mock("@/features/vendor/AddClientModal", () => ({
+  AddClientModal: ({
+    onCreate,
+    onCancel,
+  }: {
+    onCreate: (input: {
+      name: string;
+      lastName: string;
+      telephone: string;
+    }) => Promise<unknown>;
+    onCancel: () => void;
+  }) => (
+    <div role="dialog">
+      <button
+        onClick={() =>
+          void onCreate({
+            name: "Luis",
+            lastName: "Pérez",
+            telephone: "99998888",
+          })
+        }
+      >
+        Crear cliente simulado
+      </button>
+      <button onClick={onCancel}>Cancelar</button>
+    </div>
+  ),
+}));
+
 const BASE_PROPS: React.ComponentProps<typeof ClientList> = {
   allClients: [],
   createClient: jest.fn(async () => ({ ok: false as const, error: "error" })),
@@ -90,80 +119,53 @@ describe("ClientList", () => {
     expect(onAbrir).toHaveBeenCalledWith("a1");
   });
 
-  it("crear cliente llama al hook y muestra la contraseña temporal una vez", async () => {
+  it("el botón Agregar cliente abre el modal", async () => {
     const user = userEvent.setup();
-    const nuevo = makeClient({
-      id: "nuevo-1",
-      name: "Luis",
-      lastName: "Pérez",
-      telephone: "99998888",
-    });
+    renderList();
+
+    expect(
+      screen.queryByText("Crear cliente simulado"),
+    ).not.toBeInTheDocument();
+
+    await user.click(
+      screen.getByRole("button", { name: "Agregar cliente" }),
+    );
+
+    expect(screen.getByText("Crear cliente simulado")).toBeInTheDocument();
+  });
+
+  it("el modal recibe la creación del padre", async () => {
+    const user = userEvent.setup();
     const createClient = jest.fn(async () => ({
-      ok: true as const,
-      client: nuevo,
-      tempPassword: "Temp123XYZ",
+      ok: false as const,
+      error: "error",
     }));
     renderList({ createClient });
 
-    await user.type(screen.getByPlaceholderText("Nombre *"), "Luis");
-    await user.type(screen.getByPlaceholderText("Apellido"), "Pérez");
-    await user.type(
-      screen.getByPlaceholderText(/Teléfono \(será su usuario/),
-      "99998888",
+    await user.click(
+      screen.getByRole("button", { name: "Agregar cliente" }),
     );
-    await user.click(screen.getByRole("button", { name: "Agregar" }));
+    await user.click(screen.getByText("Crear cliente simulado"));
 
     expect(createClient).toHaveBeenCalledWith({
       name: "Luis",
       lastName: "Pérez",
       telephone: "99998888",
     });
-    expect(
-      await screen.findByText(/Cuenta creada para Luis Pérez/),
-    ).toBeInTheDocument();
-    expect(screen.getByText(/Temp123XYZ/)).toBeInTheDocument();
   });
 
-  it("un error al crear muestra el mensaje en el formulario", async () => {
-    const user = userEvent.setup();
-    const createClient = jest.fn(async () => ({
-      ok: false as const,
-      error: "Ese teléfono ya está registrado",
-    }));
-    renderList({ createClient });
-
-    await user.type(screen.getByPlaceholderText("Nombre *"), "Luis");
-    await user.type(
-      screen.getByPlaceholderText(/Teléfono \(será su usuario/),
-      "99998888",
-    );
-    await user.click(screen.getByRole("button", { name: "Agregar" }));
-
-    expect(
-      await screen.findByText("Ese teléfono ya está registrado"),
-    ).toBeInTheDocument();
-  });
-
-  it("el botón Agregar está deshabilitado hasta que el teléfono tenga formato válido", async () => {
+  it("Cancelar en el modal lo cierra", async () => {
     const user = userEvent.setup();
     renderList();
 
-    const boton = screen.getByRole("button", { name: "Agregar" });
-    const telefono = screen.getByPlaceholderText(
-      /Teléfono \(será su usuario/,
+    await user.click(
+      screen.getByRole("button", { name: "Agregar cliente" }),
     );
-    expect(boton).toBeDisabled();
+    await user.click(screen.getByRole("button", { name: "Cancelar" }));
 
-    await user.type(telefono, "123");
-    expect(boton).toBeDisabled();
-
-    await user.clear(telefono);
-    await user.type(telefono, "8888**7777");
-    expect(boton).toBeDisabled();
-
-    await user.clear(telefono);
-    await user.type(telefono, "8888 7777");
-    expect(boton).toBeEnabled();
+    expect(
+      screen.queryByText("Crear cliente simulado"),
+    ).not.toBeInTheDocument();
   });
 
   it("eliminar cliente con registros muestra el modal de bloqueo y no borra", async () => {
@@ -203,7 +205,9 @@ describe("ClientList", () => {
   it("sin clientes, la lista explica cómo agregar el primero", () => {
     renderList();
     expect(
-      screen.getByText(/Todavía no tienes clientes\. Agrega el primero/),
+      screen.getByText(
+        /Todavía no tienes clientes\. Agrega el primero con el botón/,
+      ),
     ).toBeInTheDocument();
   });
 
