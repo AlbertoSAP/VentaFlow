@@ -1,6 +1,5 @@
 import { SuccessNotice } from "@/components/shared/SuccessNotice";
 import { ConfirmModal } from "@/components/shared/ConfirmModal";
-import { ErrorMsg } from "@/components/shared/Errorhelper";
 import { deudaCls, moneyCls, pagadoCls } from "@/components/shared/TotalBox";
 import { Wrap } from "@/components/shared/Wrap";
 import { Badge } from "@/components/ui/badge";
@@ -9,19 +8,12 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import type { Client } from "@/domain/models";
+import { AddClientModal } from "./AddClientModal";
 import { useClientCalculations } from "@/hooks/useClientCalculations";
 import { useFormat } from "@/hooks/useFormat";
-import { useIdentity } from "@/hooks/useIdentity";
-import { useWhatsApp } from "@/hooks/useWhatsApp";
 import { iniciales } from "@/util/Initiales";
-import { MessageCircle, Search } from "lucide-react";
-import { FormEvent, useEffect, useState } from "react";
-
-interface CreadoInfo {
-  nombre: string;
-  telephone: string;
-  tempPassword: string;
-}
+import { Search } from "lucide-react";
+import { useEffect, useState } from "react";
 
 interface ListaProps {
   allClients: Client[];
@@ -51,53 +43,18 @@ export function ClientList({
   totalPorCobrar,
   onAbrir,
 }: ListaProps) {
-  const [name, setName] = useState("");
-  const [lastName, setLastName] = useState("");
-  const [telephone, setTelephone] = useState("");
-  const [formError, setFormError] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [creado, setCreado] = useState<CreadoInfo | null>(null);
+  const [showAddClient, setShowAddClient] = useState(false);
   const [clienteAEliminar, setClienteAEliminar] = useState<Client | null>(null);
   const [avisoEliminar, setAvisoEliminar] = useState<Client | null>(null);
   const [aviso, setAviso] = useState("");
   const { deuda, fullName } = useClientCalculations();
   const { fmtMoney } = useFormat();
-  const { telephoneError } = useIdentity();
-  const { mensajeDatosAcceso, whatsAppUrl } = useWhatsApp();
 
   useEffect(() => {
     if (!aviso) return;
     const t = setTimeout(() => setAviso(""), 4000);
     return () => clearTimeout(t);
   }, [aviso]);
-
-  const agregar = async (e: FormEvent) => {
-    e.preventDefault();
-    setFormError("");
-    setCreado(null);
-    setBusy(true);
-    try {
-      const result = await createClient({ name, lastName, telephone });
-      if (!result.ok) {
-        setFormError(result.error);
-        return;
-      }
-      setCreado({
-        nombre: fullName(result.client),
-        telephone: result.client.telephone,
-        tempPassword: result.tempPassword,
-      });
-      setName("");
-      setLastName("");
-      setTelephone("");
-    } catch {
-      // createClient no debería lanzar, pero si lo hiciera el botón
-      // no puede quedarse en "Creando…" sin mensaje.
-      setFormError("No se pudo crear el cliente. Inténtalo de nuevo.");
-    } finally {
-      setBusy(false);
-    }
-  };
 
   // Eliminar exige pasar por el modal: si el cliente tiene registros
   // se muestra el aviso de bloqueo; si no, la confirmación de borrado.
@@ -139,91 +96,19 @@ export function ClientList({
 
       {aviso && <SuccessNotice>{aviso}</SuccessNotice>}
 
-      <Card className="gap-4 p-6">
-        <h3 className="text-base font-semibold tracking-tight">
+      <div className="flex gap-3">
+        <div className="relative flex-1">
+          <Search className="pointer-events-none absolute top-1/2 left-3.5 size-4.5 -translate-y-1/2 text-slate-400" />
+          <Input
+            className="bg-card pl-10.5"
+            placeholder="Buscar cliente..."
+            value={busqueda}
+            onChange={(e) => setBusqueda(e.target.value)}
+          />
+        </div>
+        <Button onClick={() => setShowAddClient(true)}>
           Agregar cliente
-        </h3>
-        <form className="flex flex-col gap-4" onSubmit={agregar}>
-          <div className="flex flex-wrap gap-3">
-            <Input
-              className="min-w-36 flex-1"
-              placeholder="Nombre *"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-            />
-            <Input
-              className="min-w-36 flex-1"
-              placeholder="Apellido"
-              value={lastName}
-              onChange={(e) => setLastName(e.target.value)}
-            />
-          </div>
-          <div className="flex flex-wrap gap-3">
-            <Input
-              className="min-w-52 flex-1"
-              placeholder="Teléfono (será su usuario para entrar) *"
-              inputMode="tel"
-              autoComplete="tel"
-              value={telephone}
-              onChange={(e) => setTelephone(e.target.value)}
-            />
-            <Button
-              type="submit"
-              disabled={busy || telephoneError(telephone) !== null}
-            >
-              {busy ? "Creando…" : "Agregar"}
-            </Button>
-          </div>
-          <p className="text-xs leading-relaxed text-muted-foreground">
-            Al agregarlo se crea también su cuenta: entrará con su teléfono y la
-            contraseña temporal que se genera aquí.
-          </p>
-          {formError && <ErrorMsg>{formError}</ErrorMsg>}
-          {creado && (
-            <div className="flex flex-col gap-1 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3.5 text-sm text-emerald-900">
-              <strong>✅ Cuenta creada para {creado.nombre}</strong>
-              <span>
-                Usuario: <b>{creado.telephone}</b> · Contraseña temporal:{" "}
-                <b>{creado.tempPassword}</b>
-              </span>
-              <span className="text-xs">
-                Entrégale estos datos ahora: la contraseña no se guarda y no se
-                puede volver a ver.
-              </span>
-              <Button
-                asChild
-                variant="outline"
-                size="sm"
-                className="mt-2 self-start"
-              >
-                <a
-                  href={whatsAppUrl(
-                    creado.telephone,
-                    mensajeDatosAcceso(
-                      creado.nombre,
-                      creado.telephone,
-                      creado.tempPassword,
-                    ),
-                  )}
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  <MessageCircle /> Enviar datos por WhatsApp
-                </a>
-              </Button>
-            </div>
-          )}
-        </form>
-      </Card>
-
-      <div className="relative">
-        <Search className="pointer-events-none absolute top-1/2 left-3.5 size-4.5 -translate-y-1/2 text-slate-400" />
-        <Input
-          className="bg-card pl-10.5"
-          placeholder="Buscar cliente..."
-          value={busqueda}
-          onChange={(e) => setBusqueda(e.target.value)}
-        />
+        </Button>
       </div>
 
       <div className="flex flex-col gap-3">
@@ -278,7 +163,7 @@ export function ClientList({
         {clientes.length === 0 && (
           <p className="py-10 text-center text-sm text-muted-foreground">
             {allClients.length === 0
-              ? "Todavía no tienes clientes. Agrega el primero con el formulario de arriba: solo necesitas su nombre y su número de teléfono."
+              ? "Todavía no tienes clientes. Agrega el primero con el botón «Agregar cliente»: solo necesitas su nombre y su número de teléfono."
               : "Ningún cliente coincide con tu búsqueda. Prueba con otro nombre."}
           </p>
         )}
@@ -303,6 +188,13 @@ export function ClientList({
           confirmLabel="Sí, eliminar"
           onConfirm={() => void confirmarEliminar()}
           onCancel={() => setClienteAEliminar(null)}
+        />
+      )}
+
+      {showAddClient && (
+        <AddClientModal
+          onCreate={createClient}
+          onCancel={() => setShowAddClient(false)}
         />
       )}
     </Wrap>
