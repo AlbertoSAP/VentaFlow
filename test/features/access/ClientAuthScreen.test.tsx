@@ -25,9 +25,7 @@ jest.mock("@/components/shared/Topbar", () => ({
 }));
 
 jest.mock("@/components/shared/Wrap", () => ({
-  Wrap: ({ children }: { children?: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
+  Wrap: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>,
 }));
 
 jest.mock("@/components/shared/ShowPwButton", () => ({
@@ -45,20 +43,20 @@ jest.mock("@/components/shared/ShowPwButton", () => ({
 }));
 
 jest.mock("@/components/shared/Errorhelper", () => ({
-  ErrorMsg: ({ children }: { children?: React.ReactNode }) => (
-    <p>{children}</p>
-  ),
+  ErrorMsg: ({ children }: { children?: React.ReactNode }) => <p>{children}</p>,
 }));
 
-jest.mock("@/hooks/useAuth", () => ({
-  mapAuthError: () => "Error de prueba",
+jest.mock("@/lib/mapErros", () => ({
+  mapAuthErrors: () => "Error de prueba",
 }));
 
 beforeEach(() => {
   jest.clearAllMocks();
 });
 
-function renderScreen(props: Partial<React.ComponentProps<typeof ClientAuthScreen>> = {}) {
+function renderScreen(
+  props: Partial<React.ComponentProps<typeof ClientAuthScreen>> = {},
+) {
   return render(
     <ClientAuthScreen
       onLoginClient={jest.fn(async () => {})}

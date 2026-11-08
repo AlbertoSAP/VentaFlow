@@ -11,7 +11,9 @@ import { act } from "react";
 // solo prueba su puerta (sesión + rol + ruta).
 jest.mock("../../../src/hooks/useAuth.ts", () => ({
   useAuth: jest.fn(),
-  mapAuthError: () => "Error de prueba",
+}));
+jest.mock("../../../src/lib/mapErros.ts", () => ({
+  mapAuthErrors: () => "Error de prueba",
 }));
 
 jest.mock("@/components/shared/Topbar", () => ({
