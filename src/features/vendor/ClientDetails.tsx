@@ -8,11 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
-import type {
-  CatalogProduct,
-  Client,
-  FiadoItem,
-} from "@/domain/models";
+import type { CatalogProduct, Client, FiadoItem } from "@/domain/models";
 import { useClientCalculations } from "@/hooks/useClientCalculations";
 import { useFormat } from "@/hooks/useFormat";
 import { useIdentity } from "@/hooks/useIdentity";
@@ -48,8 +44,7 @@ export function ClientDetails({
   const [frecPrecio, setFrecPrecio] = useState("");
   const [frecuenteAQuitar, setFrecuenteAQuitar] =
     useState<CatalogProduct | null>(null);
-  const { deuda, fullName, totalItems, totalPagos } =
-    useClientCalculations();
+  const { deuda, fullName, totalItems, totalPagos } = useClientCalculations();
   const { fmtFecha, fmtMoney } = useFormat();
   const { uid } = useIdentity();
   const { mensajeEstadoCuenta, whatsAppUrl } = useWhatsApp();
@@ -171,7 +166,7 @@ export function ClientDetails({
             </span>
           )}
         </div>
-        <div className="flex flex-col items-end gap-2.5">
+        <div className="flex flex-col items-end gap-2.5 w-full">
           <TotalBox monto={d} />
           <Button
             variant="success"
