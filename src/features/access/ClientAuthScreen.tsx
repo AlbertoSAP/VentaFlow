@@ -8,7 +8,7 @@ import { Wrap } from "@/components/shared/Wrap";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { mapAuthError } from "@/hooks/useAuth";
+import { useError } from "@/hooks/useError";
 import { FormEvent, useState } from "react";
 
 interface ClientAuthProps {
@@ -20,6 +20,7 @@ export function ClientAuthScreen({
   onLoginClient,
   onIrVendedor,
 }: ClientAuthProps) {
+  const { getError } = useError();
   const [telephone, setTelephone] = useState("");
   const [password, setPassword] = useState("");
   const [showPw, setShowPw] = useState(false);
@@ -33,7 +34,7 @@ export function ClientAuthScreen({
     try {
       await onLoginClient(telephone, password);
     } catch (err) {
-      setError(mapAuthError(err));
+      setError(getError({ error: err, variant: "AuthErrors" }));
     } finally {
       setBusy(false);
     }

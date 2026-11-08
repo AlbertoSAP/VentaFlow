@@ -12,7 +12,9 @@ import { makeClient, makeClientSinRegistros } from "../../fixtures";
 // el cableado de VendorApp (filtro por useMemo, cambio de vista).
 jest.mock("../../../src/hooks/useAuth.ts", () => ({
   useAuth: jest.fn(),
-  mapAuthError: () => "Error de prueba",
+}));
+jest.mock("../../../src/lib/mapErros.ts", () => ({
+  mapAuthErrors: () => "Error de prueba",
 }));
 
 jest.mock("../../../src/hooks/useClient.tsx", () => ({
@@ -26,9 +28,7 @@ jest.mock("@/components/shared/Topbar", () => ({
 }));
 
 jest.mock("@/components/shared/Wrap", () => ({
-  Wrap: ({ children }: { children?: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
+  Wrap: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>,
 }));
 
 jest.mock("@/Dashboard", () => ({
@@ -218,9 +218,7 @@ describe("VendorApp", () => {
 
     await user.click(screen.getByRole("button", { name: /Clientes/ }));
     await user.click(screen.getByRole("button", { name: "Ana López" }));
-    expect(screen.getByTestId("client-details")).toHaveTextContent(
-      "Ana López",
-    );
+    expect(screen.getByTestId("client-details")).toHaveTextContent("Ana López");
   });
 
   it("mientras cargan los clientes muestra el aviso de carga", () => {
@@ -243,9 +241,7 @@ describe("VendorApp", () => {
     setClientsHook({ clients: [] });
     renderVendor({ ...VENDOR_PROPS, estado: "pendiente", esAdmin: true });
 
-    await user.click(
-      screen.getByRole("button", { name: /Solicitudes \(1\)/ }),
-    );
+    await user.click(screen.getByRole("button", { name: /Solicitudes \(1\)/ }));
     expect(screen.getByTestId("requests-panel")).toBeInTheDocument();
   });
 
@@ -272,9 +268,7 @@ describe("VendorApp", () => {
     setClientsHook({ clients: [makeClient({ id: "a1" })] });
     renderVendor(VENDOR_PROPS, "/vendedor/clientes/a1");
 
-    expect(screen.getByTestId("client-details")).toHaveTextContent(
-      "Ana López",
-    );
+    expect(screen.getByTestId("client-details")).toHaveTextContent("Ana López");
   });
 
   it("una ruta desconocida del vendedor redirige al dashboard", () => {

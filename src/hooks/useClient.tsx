@@ -15,25 +15,11 @@ import {
   generateTempPassword,
   telephoneError,
 } from "../services/identity";
+import { useError } from "./useError.ts";
 
 export type CreateClientResult =
   | { ok: true; client: Client; tempPassword: string }
   | { ok: false; error: string };
-
-function mapCreateError(e: unknown): string {
-  const code = (e as { code?: string })?.code ?? "";
-  switch (code) {
-    case "auth/email-already-in-use":
-      return "Ya existe un cliente con ese número de teléfono.";
-    case "auth/operation-not-allowed":
-      return "Falta habilitar el acceso con correo y contraseña en la consola de Firebase (ver SETUP_AUTH.md).";
-    case "auth/network-request-failed":
-      return "Sin conexión. Revisa tu internet e inténtalo de nuevo.";
-    default:
-      return "No se pudo crear el cliente. Inténtalo de nuevo.";
-  }
-}
-
 /**
  * Clientes de un vendedor.
  * Al crear un cliente también se le crea su cuenta en Firebase Auth
@@ -45,6 +31,7 @@ export const useClient = (
   vendorUid: string,
   repo: ClientesRepository = clientsRepository,
 ) => {
+  const { getError } = useError();
   const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -116,7 +103,10 @@ export const useClient = (
 
       return { ok: true, client, tempPassword };
     } catch (e) {
-      return { ok: false, error: mapCreateError(e) };
+      return {
+        ok: false,
+        error: getError({ error: e, variant: "CreateClientErrors" }),
+      };
     } finally {
       // La limpieza nunca debe lanzar: si borrar la app fallara, el
       // resultado (éxito o error) ya está decidido y no se pierde.
@@ -147,13 +137,20 @@ export const useClient = (
       (client.items?.length ?? 0) > 0 || (client.pagos?.length ?? 0) > 0;
 
     if (hasRecords)
-      return `No se puede eliminar a ${name}: tiene productos fiados o abonos registrados.`;
+      return getError({
+        variant: "RemoveClientErrors",
+        name,
+        value: "noRemove",
+      });
 
     try {
       await repo.deleteClientRecord(id);
       return null;
     } catch {
-      return "No se pudo eliminar. Inténtalo de nuevo.";
+      return getError({
+        variant: "RemoveClientErrors",
+        value: "faildRemove",
+      });
     }
   };
 

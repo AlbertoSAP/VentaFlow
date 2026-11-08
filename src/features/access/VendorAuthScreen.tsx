@@ -5,12 +5,12 @@ import { ErrorMsg } from "@/components/shared/Errorhelper";
 import { Input } from "@/components/ui/input";
 import { ShowPwButton } from "@/components/shared/ShowPwButton";
 import { FormEvent, useState } from "react";
-import { mapAuthError } from "@/hooks/useAuth";
 import { Topbar } from "@/components/shared/Topbar";
 import { Wrap } from "@/components/shared/Wrap";
 import { Card } from "@/components/ui/card";
 import { Seg } from "@/components/shared/Seg";
 import { segBtnCls } from "@/components/shared/SegBtnCls";
+import { useError } from "@/hooks/useError";
 
 interface VendorAuthProps {
   onLoginVendor: (email: string, password: string) => Promise<void>;
@@ -25,6 +25,7 @@ export function VendorAuthScreen({
   onLoginVendor,
   onRegisterVendor,
 }: VendorAuthProps) {
+  const { getError } = useError();
   const [mode, setMode] = useState<"login" | "register">("login");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -44,7 +45,7 @@ export function VendorAuthScreen({
         await onLoginVendor(email, password);
       }
     } catch (err) {
-      setError(mapAuthError(err));
+      setError(getError({ error: err, variant: "AuthErrors" }));
     } finally {
       setBusy(false);
     }

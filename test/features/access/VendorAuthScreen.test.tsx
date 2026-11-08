@@ -10,15 +10,11 @@ jest.mock("@/components/shared/Topbar", () => ({
 }));
 
 jest.mock("@/components/shared/Wrap", () => ({
-  Wrap: ({ children }: { children?: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
+  Wrap: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>,
 }));
 
 jest.mock("@/components/shared/Seg", () => ({
-  Seg: ({ children }: { children?: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
+  Seg: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>,
 }));
 
 jest.mock("@/components/shared/ShowPwButton", () => ({
@@ -36,13 +32,11 @@ jest.mock("@/components/shared/ShowPwButton", () => ({
 }));
 
 jest.mock("@/components/shared/Errorhelper", () => ({
-  ErrorMsg: ({ children }: { children?: React.ReactNode }) => (
-    <p>{children}</p>
-  ),
+  ErrorMsg: ({ children }: { children?: React.ReactNode }) => <p>{children}</p>,
 }));
 
-jest.mock("@/hooks/useAuth", () => ({
-  mapAuthError: () => "Error de prueba",
+jest.mock("@/lib/mapErros", () => ({
+  mapAuthErrors: () => "Error de prueba",
 }));
 
 beforeEach(() => {
@@ -89,11 +83,7 @@ describe("VendorAuthScreen", () => {
     );
     await user.click(screen.getByRole("button", { name: "Crear mi cuenta" }));
 
-    expect(registerVendor).toHaveBeenCalledWith(
-      "Juan",
-      "juan@x.com",
-      "123456",
-    );
+    expect(registerVendor).toHaveBeenCalledWith("Juan", "juan@x.com", "123456");
   });
 
   it("explica para qué sirve la app", () => {

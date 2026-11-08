@@ -20,28 +20,6 @@ import { generateEmailAlias } from "../services/identity";
 import { sendNewVendorNotification } from "../services/email";
 import { emailjsConfig } from "../emailConfig.ts";
 
-export function mapAuthError(e: unknown): string {
-  const code = (e as { code?: string })?.code ?? "";
-  switch (code) {
-    case "auth/email-already-in-use":
-      return "Ese correo ya tiene una cuenta. Inicia sesión.";
-    case "auth/invalid-email":
-      return "El correo no es válido.";
-    case "auth/weak-password":
-      return "La contraseña debe tener al menos 6 caracteres.";
-    case "auth/invalid-credential":
-    case "auth/wrong-password":
-    case "auth/user-not-found":
-      return "Credenciales incorrectas. Revisa los datos e inténtalo de nuevo.";
-    case "auth/operation-not-allowed":
-      return "Falta habilitar el acceso con correo y contraseña en la consola de Firebase (ver SETUP_AUTH.md).";
-    case "auth/network-request-failed":
-      return "Sin conexión. Revisa tu internet e inténtalo de nuevo.";
-    default:
-      return "Ocurrió un error. Inténtalo de nuevo.";
-  }
-}
-
 interface AuthDeps {
   vendors?: VendedoresRepository;
   approvals?: AprobacionesRepository;
@@ -134,7 +112,11 @@ export const useAuth = (deps: AuthDeps = {}) => {
 
   /** El cliente entra con su número de teléfono y su contraseña */
   const loginClient = async (telephone: string, password: string) => {
-    await signInWithEmailAndPassword(auth, generateEmailAlias(telephone), password);
+    await signInWithEmailAndPassword(
+      auth,
+      generateEmailAlias(telephone),
+      password,
+    );
   };
 
   const logout = async () => {

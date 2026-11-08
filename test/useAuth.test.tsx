@@ -1,5 +1,5 @@
 import { renderHook, act, waitFor } from "@testing-library/react";
-import { useAuth, mapAuthError } from "../src/hooks/useAuth.ts";
+import { useAuth } from "../src/hooks/useAuth.ts";
 import { __fakeAuth } from "./fakes/firebaseAuth";
 import { __fakeDb } from "./fakes/firebaseDatabase";
 import {
@@ -8,6 +8,7 @@ import {
   signOut,
 } from "firebase/auth";
 import { sendNewVendorNotification } from "../src/services/email.ts";
+import { mapAuthErrors } from "@/lib/mapErros.ts";
 
 jest.mock("../src/services/email.ts", () => ({
   sendNewVendorNotification: jest.fn(),
@@ -110,16 +111,18 @@ describe("useAuth", () => {
 
 describe("mapAuthError", () => {
   it("traduce los códigos más comunes a mensajes en español", () => {
-    expect(mapAuthError({ code: "auth/invalid-credential" })).toMatch(
+    expect(mapAuthErrors({ code: "auth/invalid-credential" })).toMatch(
       /incorrectas/i,
     );
-    expect(mapAuthError({ code: "auth/email-already-in-use" })).toMatch(
+    expect(mapAuthErrors({ code: "auth/email-already-in-use" })).toMatch(
       /ya tiene una cuenta/i,
     );
-    expect(mapAuthError({ code: "auth/operation-not-allowed" })).toMatch(
+    expect(mapAuthErrors({ code: "auth/operation-not-allowed" })).toMatch(
       /consola de Firebase/i,
     );
-    expect(mapAuthError({ code: "auth/weak-password" })).toMatch(/6 caracteres/);
-    expect(mapAuthError(new Error("???"))).toMatch(/Ocurrió un error/);
+    expect(mapAuthErrors({ code: "auth/weak-password" })).toMatch(
+      /6 caracteres/,
+    );
+    expect(mapAuthErrors(new Error("???"))).toMatch(/Ocurrió un error/);
   });
 });
