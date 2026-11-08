@@ -1,5 +1,5 @@
 import { filterForIdAndState } from "../../src/lib/filterForIdAndState.ts";
-import { iniciales } from "../../src/util/Initiales.ts";
+import { initials } from "../../src/components/shared/initials.ts";
 
 describe("filterForIdAndState", () => {
   const vendedores = [
@@ -35,20 +35,20 @@ describe("filterForIdAndState", () => {
   });
 });
 
-describe("iniciales", () => {
+describe("initials", () => {
   it("dos palabras dan dos iniciales en mayúscula", () => {
-    expect(iniciales("Ana López")).toBe("AL");
+    expect(initials("Ana López")).toBe("AL");
   });
 
   it("una sola palabra da una inicial", () => {
-    expect(iniciales("Juan")).toBe("J");
+    expect(initials("Juan")).toBe("J");
   });
 
   it("ignora espacios de más y toma solo las dos primeras", () => {
-    expect(iniciales("  Ana   María López ")).toBe("AM");
+    expect(initials("  Ana   María López ")).toBe("AM");
   });
 
   it("vacío da vacío", () => {
-    expect(iniciales("")).toBe("");
+    expect(initials("")).toBe("");
   });
 });

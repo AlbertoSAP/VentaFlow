@@ -11,7 +11,7 @@ import type { Client } from "@/domain/models";
 import { AddClientModal } from "./AddClientModal";
 import { useClientCalculations } from "@/hooks/useClientCalculations";
 import { useFormat } from "@/hooks/useFormat";
-import { iniciales } from "@/util/Initiales";
+import { initials } from "@/components/shared/initials";
 import { Search } from "lucide-react";
 import { useEffect, useState } from "react";
 
@@ -122,7 +122,7 @@ export function ClientList({
             >
               <div className="flex min-w-0 items-center gap-3.5">
                 <span className="grid size-11 shrink-0 place-items-center rounded-full bg-blue-50 text-sm font-bold text-primary">
-                  {iniciales(fullName(c))}
+                  {initials(fullName(c))}
                 </span>
                 <div className="min-w-0">
                   <strong className="block truncate">{fullName(c)}</strong>

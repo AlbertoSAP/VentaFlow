@@ -1,5 +1,5 @@
 import type { VendorConEstado } from "@/domain/models";
-import { iniciales } from "@/util/Initiales";
+import { initials } from "./initials";
 import { ReactNode } from "react";
 
 // Función pura de render (no un componente): quien la llama es un
@@ -15,7 +15,7 @@ export const Row = (
   >
     <div className="flex min-w-0 items-center gap-3.5">
       <span className="grid size-11 shrink-0 place-items-center rounded-full bg-blue-50 text-sm font-bold text-primary">
-        {iniciales(name || email)}
+        {initials(name || email)}
       </span>
       <div className="min-w-0">
         <strong className="block truncate">{name || "(sin nombre)"}</strong>

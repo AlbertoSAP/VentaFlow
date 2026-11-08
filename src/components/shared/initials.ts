@@ -1,4 +1,4 @@
-export function iniciales(nombre: string) {
+export function initials(nombre: string) {
   return nombre
     .split(/\s+/)
     .filter(Boolean)
